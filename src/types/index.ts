@@ -156,3 +156,16 @@ export interface SiteStatistics {
   activitiesThisYear: number;
   avgResolutionDays: number;
 }
+
+export interface HeroSlideItem {
+  id: string;
+  title: string;
+  subtitle?: string;
+  tag?: string;
+  imageUrl: string;
+  linkUrl: string;
+  isExternal?: boolean;
+  order: number;
+  published: boolean;
+  createdAt?: string;
+}

@@ -1,158 +1,328 @@
-import React, { useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { motion, useScroll, useTransform } from "motion/react";
-import { ArrowRight } from "@phosphor-icons/react";
-import { Emblem } from "@/src/components/common/Emblem";
+import {
+  CaretLeft,
+  CaretRight,
+  ArrowRight,
+  Play,
+  Pause,
+  Broadcast,
+  Sparkle,
+} from "@phosphor-icons/react";
+import { motion, AnimatePresence } from "motion/react";
+import { HeroSlideItem } from "@/src/types";
+import { getHeroSlides } from "@/src/lib/dataService";
+
+const SLIDE_DURATION_MS = 5000; // 5 วินาทีต่อภาพตามที่ผู้ใช้กำหนด
 
 export const HeroSection: React.FC = () => {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [slides, setSlides] = useState<HeroSlideItem[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const timerRef = useRef<number | null>(null);
+  const progressIntervalRef = useRef<number | null>(null);
 
-  // Gentle 0.15x parallax layer for subtle decorative gold lines
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end start"],
-  });
-  const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "15%"]);
+  useEffect(() => {
+    getHeroSlides().then((data) => {
+      if (data && data.length > 0) {
+        setSlides(data);
+      }
+    });
+  }, []);
+
+  const totalSlides = slides.length;
+
+  const nextSlide = () => {
+    if (totalSlides === 0) return;
+    setCurrentIndex((prev) => (prev + 1) % totalSlides);
+    setProgress(0);
+  };
+
+  const prevSlide = () => {
+    if (totalSlides === 0) return;
+    setCurrentIndex((prev) => (prev - 1 + totalSlides) % totalSlides);
+    setProgress(0);
+  };
+
+  const goToSlide = (index: number) => {
+    setCurrentIndex(index);
+    setProgress(0);
+  };
+
+  // 5-second Autoplay cycle with progress bar
+  useEffect(() => {
+    if (!isPlaying || isHovered || totalSlides <= 1) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      return;
+    }
+
+    const intervalStep = 50; // update progress every 50ms
+    const stepIncrement = (intervalStep / SLIDE_DURATION_MS) * 100;
+
+    progressIntervalRef.current = window.setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          nextSlide();
+          return 0;
+        }
+        return prev + stepIncrement;
+      });
+    }, intervalStep);
+
+    return () => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    };
+  }, [isPlaying, isHovered, currentIndex, totalSlides]);
+
+  if (totalSlides === 0) {
+    return (
+      <section className="bg-[#FAF7F0] py-8 border-b border-[#B8923A]/20">
+        <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-12 h-64 flex items-center justify-center">
+          <div className="flex items-center gap-3 text-xs text-[#1B1226]/60">
+            <div className="w-5 h-5 rounded-full border-2 border-[#B8923A] border-t-[#4B1F7A] animate-spin" />
+            <span>กำลังโหลดข่าวสารล่าสุด...</span>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const currentSlide = slides[currentIndex];
+  const isExternal = currentSlide.isExternal || currentSlide.linkUrl?.startsWith("http");
 
   return (
     <section
-      ref={containerRef}
-      className="relative overflow-hidden pt-12 pb-16 lg:pt-20 lg:pb-24 bg-[#FAF7F0]"
+      className="relative bg-[#FAF7F0] pt-4 sm:pt-6 pb-8 sm:pb-12 overflow-hidden border-b border-[#B8923A]/20"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      aria-roledescription="carousel"
+      aria-label="ข่าวสารล่าสุดและกิจกรรมเด่น"
     >
-      {/* Parallax decorative background gold line layer */}
-      <motion.div
-        style={{ y: backgroundY }}
-        className="absolute inset-0 pointer-events-none opacity-20 z-0"
-        aria-hidden="true"
-      >
-        <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="editorial-grid" width="160" height="160" patternUnits="userSpaceOnUse">
-              <path
-                d="M 160 0 L 0 0 0 160"
-                fill="none"
-                stroke="#B8923A"
-                strokeWidth="0.5"
-                strokeDasharray="4 8"
-              />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#editorial-grid)" />
-        </svg>
-      </motion.div>
-
-      <div className="relative z-10 max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-          {/* Left Column (7 cols): Editorial Typography */}
-          <div className="lg:col-span-7">
-            {/* Eyebrow */}
-            <div className="flex items-center gap-2.5 mb-4">
-              <span className="text-[11px] sm:text-xs font-semibold tracking-[0.25em] text-[#9C7A2B] uppercase">
-                STUDENT VOICE · สาธิตมหาวิทยาลัยพะเยา
-              </span>
-              <span className="h-[1px] w-12 bg-[#B8923A]/40" />
-            </div>
-
-            {/* Staggered Mask Reveal Headline */}
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.25rem] font-bold font-serif leading-[1.25] text-[#1B1226] mb-6">
-              <span className="block overflow-hidden pb-1">
-                <motion.span
-                  initial={{ y: "100%" }}
-                  animate={{ y: 0 }}
-                  transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                  className="block"
-                >
-                  เสียงของนักเรียน
-                </motion.span>
-              </span>
-              <span className="block overflow-hidden pb-1">
-                <motion.span
-                  initial={{ y: "100%" }}
-                  animate={{ y: 0 }}
-                  transition={{ duration: 0.7, delay: 0.09, ease: [0.22, 1, 0.36, 1] }}
-                  className="block"
-                >
-                  สร้างโรงเรียนที่{" "}
-                  <span className="font-num italic text-[#9C7A2B] font-medium tracking-normal text-[1.05em]">
-                    Inspiring
-                  </span>{" "}
-                  และเราภูมิใจ
-                </motion.span>
-              </span>
-            </h1>
-
-            {/* 2-line Description */}
-            <p className="text-base sm:text-lg text-[#1B1226]/80 leading-relaxed max-w-xl mb-8 font-sans">
-              พื้นที่กลางในการสะท้อนความคิดเห็น สร้างสรรค์กิจกรรมที่มีคุณค่า
-              และร่วมขับเคลื่อนโรงเรียนสาธิตมหาวิทยาลัยพะเยาให้เป็นสังคมแห่งการเรียนรู้ที่เติบโตไปด้วยกัน
-            </p>
-
-            {/* CTAs */}
-            <div className="flex flex-wrap items-center gap-5 sm:gap-6">
-              {/* Primary CTA (capsule, violet-700 -> violet-900, inset gold border, arrow shifts right) */}
-              <Link
-                to="/complaint"
-                className="relative inline-flex items-center gap-3 px-7 py-3.5 rounded-full bg-[#4B1F7A] text-[#FAF7F0] font-sans font-medium text-base shadow-[0_4px_16px_rgba(42,18,69,0.18)] hover:bg-[#2A1245] transition-all duration-300 group border border-[#D9B867]/40 ring-2 ring-[#D9B867]/20 ring-inset"
-              >
-                <span>ส่งเสียงถึงองค์การ</span>
-                <ArrowRight
-                  weight="light"
-                  className="w-4 h-4 text-[#D9B867] transition-transform duration-300 group-hover:translate-x-1"
-                />
-              </Link>
-
-              {/* Secondary CTA (No bg, gold 1px underline expanding on hover) */}
-              <Link
-                to="/news"
-                className="editorial-btn-secondary text-base font-medium py-1.5 group"
-              >
-                <span>ดูข่าวล่าสุด</span>
-                <span className="ml-2 text-[#9C7A2B] transition-transform duration-300 group-hover:translate-x-1">
-                  →
-                </span>
-              </Link>
-            </div>
+      <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-12">
+        {/* Top Mini Header with Live Indicator */}
+        <div className="flex items-center justify-between pb-3 text-xs">
+          <div className="flex items-center gap-2 text-[#4B1F7A] font-semibold">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#B8923A] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#4B1F7A]" />
+            </span>
+            <span className="tracking-wide font-sans text-xs">
+              ข่าวสารเด่นและกิจกรรมล่าสุด
+            </span>
           </div>
 
-          {/* Right Column (5 cols): 4:5 Photo Frame with 8px Offset Gold Border */}
-          <div className="lg:col-span-5 relative flex justify-center lg:justify-end">
-            <div className="relative w-full max-w-[380px] aspect-[4/5]">
-              {/* Emblem Watermark in the background */}
-              <div
-                className="absolute -top-10 -left-10 w-44 h-44 opacity-[0.07] pointer-events-none select-none z-0"
-                aria-hidden="true"
+          <div className="hidden sm:flex items-center gap-3 text-[#1B1226]/70">
+            <span className="font-num text-xs tabular-nums text-[#9C7A2B] font-semibold">
+              {String(currentIndex + 1).padStart(2, "0")} / {String(totalSlides).padStart(2, "0")}
+            </span>
+            <span className="text-[#B8923A]/40">·</span>
+            <button
+              type="button"
+              onClick={() => setIsPlaying(!isPlaying)}
+              className="p-1 hover:text-[#4B1F7A] transition-colors"
+              title={isPlaying ? "หยุดชั่วคราว" : "เล่นต่อ"}
+            >
+              {isPlaying ? (
+                <Pause weight="fill" className="w-3.5 h-3.5 text-[#4B1F7A]" />
+              ) : (
+                <Play weight="fill" className="w-3.5 h-3.5 text-[#9C7A2B]" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Cinematic Main Slide Showcase */}
+        <div className="relative rounded-[6px] overflow-hidden border border-[#B8923A]/40 shadow-[0_16px_40px_-15px_rgba(42,18,69,0.18)] bg-[#2A1245] aspect-[16/9] sm:aspect-[21/9] min-h-[340px] sm:min-h-[420px] lg:min-h-[480px]">
+          {/* Animated Background Image - Clean & Fully Visible */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentSlide.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute inset-0 z-0"
+            >
+              {isExternal ? (
+                <a
+                  href={currentSlide.linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full h-full cursor-pointer"
+                  title={currentSlide.title}
+                >
+                  <img
+                    src={currentSlide.imageUrl}
+                    alt={currentSlide.title}
+                    className="w-full h-full object-cover"
+                    loading="eager"
+                  />
+                </a>
+              ) : (
+                <Link
+                  to={currentSlide.linkUrl}
+                  className="block w-full h-full cursor-pointer"
+                  title={currentSlide.title}
+                >
+                  <img
+                    src={currentSlide.imageUrl}
+                    alt={currentSlide.title}
+                    className="w-full h-full object-cover"
+                    loading="eager"
+                  />
+                </Link>
+              )}
+
+              {/* Minimal bottom-only gradient strip so the photo is 80%+ clear and fully visible */}
+              <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/85 via-black/40 to-transparent pointer-events-none" />
+            </motion.div>
+          </AnimatePresence>
+
+          {/* 5-Second Linear Progress Bar at top of card */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-[#FAF7F0]/20 z-30">
+            <motion.div
+              className="h-full bg-gradient-to-r from-[#D9B867] to-[#FAF7F0]"
+              style={{ width: `${progress}%` }}
+              transition={{ ease: "linear" }}
+            />
+          </div>
+
+          {/* Compact Bottom Caption Strip (No Subtitle, Maximum Image Visibility) */}
+          <div className="absolute inset-x-0 bottom-0 z-20 p-5 sm:p-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 pointer-events-none">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentSlide.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.35 }}
+                className="space-y-2 max-w-3xl pointer-events-auto"
               >
-                <Emblem size={176} theme="on-paper" />
-              </div>
+                {/* Tag / Category Badge */}
+                {currentSlide.tag && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[4px] bg-[#2A1245]/90 backdrop-blur-md border border-[#D9B867] !text-[#D9B867] text-xs font-semibold tracking-wide shadow-sm">
+                    <Sparkle weight="fill" className="w-3.5 h-3.5 text-[#D9B867]" />
+                    <span style={{ color: "#D9B867" }}>{currentSlide.tag}</span>
+                  </div>
+                )}
 
-              {/* Offset Gold Border (8px offset) */}
-              <div
-                className="absolute inset-0 translate-x-2 translate-y-2 border border-[#B8923A]/70 rounded-[4px] pointer-events-none z-0"
-                aria-hidden="true"
-              />
-
-              {/* Image Container (max 4px radius) */}
-              <div className="relative w-full h-full rounded-[4px] overflow-hidden shadow-[0_12px_32px_-12px_rgba(42,18,69,0.22)] z-10 bg-[#EDE6F5]">
-                <img
-                  src="https://picsum.photos/seed/desup-hero-students/800/1000"
-                  alt="ภาพกิจกรรมนักเรียน โรงเรียนสาธิตมหาวิทยาลัยพะเยา"
-                  width={800}
-                  height={1000}
-                  loading="eager"
-                  className="w-full h-full object-cover transition-transform duration-700 hover:scale-[1.03]"
-                />
-
-                {/* Editorial Caption Tag in bottom corner */}
-                <div className="absolute bottom-3 left-3 right-3 bg-[#2A1245]/90 backdrop-blur-sm text-[#FAF7F0] px-3.5 py-2 rounded-[3px] border border-[#B8923A]/30">
-                  <span className="text-[10px] uppercase tracking-wider text-[#D9B867] font-serif block">
-                    DE-SUP 2569
-                  </span>
-                  <span className="text-xs font-sans font-medium line-clamp-1">
-                    พลังคนรุ่นใหม่ เพื่อสาธิต ม.พะเยา
-                  </span>
+                {/* Slide Title */}
+                <div>
+                  {isExternal ? (
+                    <a
+                      href={currentSlide.linkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group/title block"
+                    >
+                      <h2
+                        className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold !text-[#FAF7F0] group-hover/title:!text-[#D9B867] leading-snug drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] transition-colors"
+                        style={{ color: "#FAF7F0" }}
+                      >
+                        {currentSlide.title}
+                      </h2>
+                    </a>
+                  ) : (
+                    <Link to={currentSlide.linkUrl} className="group/title block">
+                      <h2
+                        className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold !text-[#FAF7F0] group-hover/title:!text-[#D9B867] leading-snug drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] transition-colors"
+                        style={{ color: "#FAF7F0" }}
+                      >
+                        {currentSlide.title}
+                      </h2>
+                    </Link>
+                  )}
                 </div>
-              </div>
+
+                {/* Action Link */}
+                <div className="pt-1 flex items-center gap-3">
+                  {isExternal ? (
+                    <a
+                      href={currentSlide.linkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold !text-[#D9B867] hover:underline"
+                    >
+                      <span>เปิดอ่านรายละเอียดข่าว</span>
+                      <ArrowRight weight="bold" className="w-3.5 h-3.5" />
+                    </a>
+                  ) : (
+                    <Link
+                      to={currentSlide.linkUrl}
+                      className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold !text-[#D9B867] hover:underline"
+                    >
+                      <span>เปิดอ่านรายละเอียดข่าว</span>
+                      <ArrowRight weight="bold" className="w-3.5 h-3.5" />
+                    </Link>
+                  )}
+                  <span className="text-white/40">·</span>
+                  <Link
+                    to="/news"
+                    className="text-xs sm:text-sm !text-[#FAF7F0]/80 hover:!text-[#FAF7F0] transition-colors"
+                    style={{ color: "rgba(250, 247, 240, 0.85)" }}
+                  >
+                    ดูข่าวทั้งหมด →
+                  </Link>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Slide Arrow Navigation Controls */}
+            <div className="flex items-center gap-2 pointer-events-auto shrink-0 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={prevSlide}
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#1B1226]/70 hover:bg-[#4B1F7A] backdrop-blur-md border border-[#FAF7F0]/30 hover:border-[#D9B867] flex items-center justify-center text-[#FAF7F0] transition-all duration-200 shadow-md"
+                aria-label="ข่าวก่อนหน้า"
+              >
+                <CaretLeft weight="bold" className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={nextSlide}
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#1B1226]/70 hover:bg-[#4B1F7A] backdrop-blur-md border border-[#FAF7F0]/30 hover:border-[#D9B867] flex items-center justify-center text-[#FAF7F0] transition-all duration-200 shadow-md"
+                aria-label="ข่าวถัดไป"
+              >
+                <CaretRight weight="bold" className="w-4 h-4" />
+              </button>
             </div>
+          </div>
+        </div>
+
+        {/* Thumbnail Dots Navigation Bar */}
+        <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-between gap-3 px-1">
+          {/* Slide Indicators / Tabs */}
+          <div className="flex items-center gap-2">
+            {slides.map((s, idx) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => goToSlide(idx)}
+                className={`transition-all duration-300 rounded-full ${
+                  currentIndex === idx
+                    ? "w-8 h-2 bg-[#4B1F7A]"
+                    : "w-2 h-2 bg-[#B8923A]/40 hover:bg-[#B8923A]"
+                }`}
+                aria-label={`ไปที่ข่าวที่ ${idx + 1}`}
+                title={s.title}
+              />
+            ))}
+          </div>
+
+          {/* Quick Shortcuts to Organization Services */}
+          <div className="flex items-center gap-4 text-xs text-[#1B1226]/75">
+            <Link to="/news/pr" className="hover:text-[#4B1F7A] transition-colors">
+              • ข่าวประชาสัมพันธ์
+            </Link>
+            <Link to="/calendar" className="hover:text-[#4B1F7A] transition-colors">
+              • ปฏิทินกิจกรรม
+            </Link>
+            <Link to="/complaint" className="hover:text-[#4B1F7A] text-[#4B1F7A] font-semibold transition-colors">
+              • ส่งเรื่องร้องเรียน
+            </Link>
           </div>
         </div>
       </div>

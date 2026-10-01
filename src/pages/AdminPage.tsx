@@ -27,6 +27,7 @@ import {
   X,
   Database,
   FacebookLogo,
+  FilmStrip,
 } from "@phosphor-icons/react";
 import { FacebookPostImporter } from "@/src/components/admin/FacebookPostImporter";
 import { auth, googleProvider } from "@/src/lib/firebase";
@@ -39,6 +40,7 @@ import {
   BudgetYearData,
   ComplaintItem,
   ComplaintStatus,
+  HeroSlideItem,
 } from "@/src/types";
 import {
   getNews,
@@ -59,6 +61,10 @@ import {
   updateComplaintStatus,
   seedAllSampleData,
   getSiteStatistics,
+  getAllHeroSlides,
+  saveHeroSlide,
+  deleteHeroSlide,
+  DEFAULT_HERO_SLIDES,
 } from "@/src/lib/dataService";
 import { formatThaiDate, COMPLAINT_STATUS_CONFIG, formatCurrency } from "@/src/lib/format";
 import { TiptapEditor } from "@/src/components/admin/TiptapEditor";
@@ -66,6 +72,7 @@ import { Emblem } from "@/src/components/common/Emblem";
 
 type AdminTab =
   | "overview"
+  | "slides"
   | "news"
   | "events"
   | "downloads"
@@ -84,6 +91,7 @@ export const AdminPage: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Data states
+  const [slidesList, setSlidesList] = useState<HeroSlideItem[]>([]);
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [eventsList, setEventsList] = useState<EventItem[]>([]);
   const [downloadsList, setDownloadsList] = useState<DownloadItem[]>([]);
@@ -93,6 +101,9 @@ export const AdminPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
 
   // Modals & Forms
+  const [isSlideModalOpen, setIsSlideModalOpen] = useState(false);
+  const [editingSlide, setEditingSlide] = useState<Partial<HeroSlideItem> | null>(null);
+
   const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
   const [editingNews, setEditingNews] = useState<Partial<NewsItem> | null>(null);
   const [isFacebookImporterOpen, setIsFacebookImporterOpen] = useState(false);
@@ -110,7 +121,7 @@ export const AdminPage: React.FC = () => {
   const [newReplyText, setNewReplyText] = useState("");
 
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
-    type: "news" | "event" | "download" | "person";
+    type: "slide" | "news" | "event" | "download" | "person";
     id: string;
     title: string;
   } | null>(null);
@@ -138,6 +149,7 @@ export const AdminPage: React.FC = () => {
 
   // Fetch data on authorization
   const reloadData = async () => {
+    getAllHeroSlides().then(setSlidesList);
     getNews({ includeUnpublished: true }).then((r) => setNewsList(r.items));
     getEvents().then(setEventsList);
     getDownloads().then(setDownloadsList);
@@ -300,6 +312,19 @@ export const AdminPage: React.FC = () => {
             >
               <ChartBar weight="light" className="w-4 h-4" />
               <span>ภาพรวม (Overview)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("slides")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[4px] text-xs font-medium transition-colors ${
+                activeTab === "slides"
+                  ? "bg-[#4B1F7A] text-[#FAF7F0]"
+                  : "text-[#1B1226]/80 hover:bg-[#FAF7F0]"
+              }`}
+            >
+              <FilmStrip weight="light" className="w-4 h-4" />
+              <span>สไลด์ข่าวหน้าแรก ({slidesList.length})</span>
             </button>
 
             <button
@@ -564,6 +589,173 @@ export const AdminPage: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* VIEW: HERO SLIDES MANAGER (สไลด์หน้าแรก วน 5 วินาที) */}
+        {activeTab === "slides" && (
+          <div className="space-y-6 max-w-6xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-[#1B1226]">
+                  จัดการสไลด์ข่าวสารหน้าแรก (Hero Carousel)
+                </h2>
+                <p className="text-xs text-[#1B1226]/60">
+                  สไลด์แบนเนอร์ภาพขนาดใหญ่บนหน้าแรก หมุนเวียนอัตโนมัติภาพละ 5 วินาที
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Quick Add from Pinned/Latest News */}
+                {newsList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const latest = newsList[0];
+                      setEditingSlide({
+                        title: latest.title,
+                        subtitle: latest.excerpt || "อ่านรายละเอียดข่าวสารและประกาศจากองค์การนักเรียน",
+                        tag: latest.category === "pr" ? "ข่าวประชาสัมพันธ์" : "กิจกรรมเด่น",
+                        imageUrl: latest.coverUrl || "https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=1600&auto=format&fit=crop",
+                        linkUrl: `/news/${latest.slug || latest.id}`,
+                        order: slidesList.length + 1,
+                        published: true,
+                      });
+                      setIsSlideModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#EDE6F5] text-[#4B1F7A] text-xs font-medium hover:bg-[#FAF7F0] border border-[#B8923A]/30 transition-colors"
+                  >
+                    <span>+ ดึงจากข่าวล่าสุด</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingSlide({
+                      title: "",
+                      subtitle: "",
+                      tag: "ข่าวด่วนประชาสัมพันธ์",
+                      imageUrl: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=1600&auto=format&fit=crop",
+                      linkUrl: "/news",
+                      order: slidesList.length + 1,
+                      published: true,
+                    });
+                    setIsSlideModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#4B1F7A] text-[#FAF7F0] text-xs font-medium hover:bg-[#2A1245] transition-colors shadow-sm"
+                >
+                  <Plus weight="bold" className="w-3.5 h-3.5" />
+                  <span>เพิ่มสไลด์ใหม่</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Slides Cards / Table */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {slidesList.map((slide, idx) => (
+                <div
+                  key={slide.id}
+                  className="bg-[#FAF7F0] border border-[#B8923A]/30 rounded-[4px] overflow-hidden shadow-sm flex flex-col justify-between"
+                >
+                  <div>
+                    {/* Slide Image Preview with Order Tag */}
+                    <div className="relative aspect-[21/9] w-full bg-[#2A1245] overflow-hidden">
+                      <img
+                        src={slide.imageUrl}
+                        alt={slide.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute top-2 left-2 bg-[#2A1245]/90 text-[#D9B867] px-2 py-0.5 rounded text-[10px] font-num font-bold">
+                        ลำดับที่ {slide.order || idx + 1}
+                      </div>
+                      <div className="absolute top-2 right-2">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                            slide.published
+                              ? "bg-[#E2F0E8] text-[#2F6B4F]"
+                              : "bg-[#EDE6F5] text-[#1B1226]/60"
+                          }`}
+                        >
+                          {slide.published ? "เปิดแสดงบนเว็บ" : "ซ่อน"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Slide Information */}
+                    <div className="p-4 space-y-2">
+                      {slide.tag && (
+                        <span className="text-[10px] font-semibold text-[#4B1F7A] bg-[#EDE6F5] px-2 py-0.5 rounded">
+                          {slide.tag}
+                        </span>
+                      )}
+                      <h4 className="font-serif text-base font-bold text-[#1B1226] line-clamp-1">
+                        {slide.title}
+                      </h4>
+                      {slide.subtitle && (
+                        <p className="text-xs text-[#1B1226]/70 line-clamp-2 font-sans">
+                          {slide.subtitle}
+                        </p>
+                      )}
+                      <p className="text-[11px] text-[#9C7A2B] truncate font-mono">
+                        ลิงก์: {slide.linkUrl}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions Bar */}
+                  <div className="p-3 bg-[#EDE6F5]/30 border-t border-[#B8923A]/15 flex items-center justify-between">
+                    <span className="text-[11px] text-[#1B1226]/50">
+                      แสดงผล 5 วินาที
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingSlide(slide);
+                          setIsSlideModalOpen(true);
+                        }}
+                        className="px-3 py-1 rounded bg-[#FAF7F0] border border-[#B8923A]/40 text-xs font-medium text-[#4B1F7A] hover:bg-[#EDE6F5]"
+                      >
+                        แก้ไข
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteConfirmation({
+                            type: "slide",
+                            id: slide.id,
+                            title: slide.title,
+                          });
+                        }}
+                        className="p-1.5 text-[#9B1C31] hover:bg-[#9B1C31]/10 rounded"
+                        title="ลบสไลด์"
+                      >
+                        <Trash weight="light" className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {slidesList.length === 0 && (
+              <div className="p-12 text-center bg-[#FAF7F0] border border-dashed border-[#B8923A]/40 rounded">
+                <p className="text-sm text-[#1B1226]/60 mb-3">ยังไม่มีสไลด์ที่กำหนดเอง</p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    for (const s of DEFAULT_HERO_SLIDES) {
+                      await saveHeroSlide(s);
+                    }
+                    reloadData();
+                  }}
+                  className="px-4 py-2 rounded-full bg-[#4B1F7A] text-[#FAF7F0] text-xs font-medium"
+                >
+                  โหลดสไลด์เริ่มต้น 4 รายการ
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1303,6 +1495,7 @@ export const AdminPage: React.FC = () => {
               <button
                 type="button"
                 onClick={async () => {
+                  if (deleteConfirmation.type === "slide") await deleteHeroSlide(deleteConfirmation.id);
                   if (deleteConfirmation.type === "news") await deleteNewsItem(deleteConfirmation.id);
                   if (deleteConfirmation.type === "event") await deleteEventItem(deleteConfirmation.id);
                   if (deleteConfirmation.type === "download") await deleteDownloadItem(deleteConfirmation.id);
@@ -1314,6 +1507,195 @@ export const AdminPage: React.FC = () => {
                 className="px-5 py-2 rounded-full bg-[#9B1C31] text-[#FAF7F0] text-xs font-medium hover:bg-[#7A1526]"
               >
                 ยืนยันการลบ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE / EDIT HERO SLIDE MODAL */}
+      {isSlideModalOpen && editingSlide && (
+        <div className="fixed inset-0 z-[99990] bg-[#1B1226]/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#FAF7F0] border border-[#B8923A]/40 rounded-[4px] max-w-2xl w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto space-y-5 shadow-2xl relative">
+            <button
+              onClick={() => setIsSlideModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 text-[#1B1226]/60 hover:text-[#1B1226]"
+            >
+              <X weight="bold" className="w-5 h-5" />
+            </button>
+
+            <h3 className="font-serif text-xl font-bold text-[#1B1226]">
+              {editingSlide.id ? "แก้ไขสไลด์ข่าวหน้าแรก" : "เพิ่มสไลด์ข่าวหน้าแรก"}
+            </h3>
+
+            {/* Quick helper to auto-fill from existing news */}
+            {newsList.length > 0 && !editingSlide.id && (
+              <div className="p-3 bg-[#EDE6F5]/50 border border-[#B8923A]/30 rounded text-xs space-y-1.5">
+                <span className="font-semibold text-[#4B1F7A] block">
+                  ⚡ ทางลัด: ดึงข้อมูลจากข่าวที่มีอยู่แล้วในระบบ
+                </span>
+                <select
+                  onChange={(e) => {
+                    const sel = newsList.find((n) => n.id === e.target.value);
+                    if (sel) {
+                      setEditingSlide({
+                        ...editingSlide,
+                        title: sel.title,
+                        subtitle: sel.excerpt || "",
+                        imageUrl: sel.coverUrl || "",
+                        linkUrl: `/news/${sel.slug || sel.id}`,
+                        tag: sel.category === "pr" ? "ข่าวประชาสัมพันธ์" : "กิจกรรมเด่น",
+                      });
+                    }
+                  }}
+                  className="w-full p-2 rounded border border-[#B8923A]/30 text-xs bg-white"
+                  defaultValue=""
+                >
+                  <option value="" disabled>
+                    -- เลือกข่าวเพื่อดึงข้อมูลอัตโนมัติ --
+                  </option>
+                  {newsList.map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {n.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-[#1B1226] mb-1">
+                  หัวข้อสไลด์ (Title) *
+                </label>
+                <input
+                  type="text"
+                  value={editingSlide.title || ""}
+                  onChange={(e) => setEditingSlide({ ...editingSlide, title: e.target.value })}
+                  placeholder="เช่น ประกาศรับสมัครประธานและคณะกรรมการ..."
+                  className="w-full p-2.5 rounded border border-[#B8923A]/40 text-sm font-serif font-bold bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#1B1226] mb-1">
+                  ข้อความเกริ่นนำ / คำบรรยายสั้น (Subtitle)
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingSlide.subtitle || ""}
+                  onChange={(e) => setEditingSlide({ ...editingSlide, subtitle: e.target.value })}
+                  placeholder="สรุป 1-2 ประโยคสั้น ๆ ที่จะปรากฏใต้หัวข้อ"
+                  className="w-full p-2.5 rounded border border-[#B8923A]/40 text-xs font-sans bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold text-[#1B1226] mb-1">
+                    ป้ายกำกับ (Tag / Badge)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingSlide.tag || ""}
+                    onChange={(e) => setEditingSlide({ ...editingSlide, tag: e.target.value })}
+                    placeholder="เช่น ข่าวด่วน, กิจกรรมเด่น, ประชาสัมพันธ์"
+                    className="w-full p-2 rounded border border-[#B8923A]/40 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#1B1226] mb-1">
+                    ลำดับการแสดงผล (Order)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={editingSlide.order || 1}
+                    onChange={(e) =>
+                      setEditingSlide({ ...editingSlide, order: parseInt(e.target.value) || 1 })
+                    }
+                    className="w-full p-2 rounded border border-[#B8923A]/40 bg-white font-num"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#1B1226] mb-1">
+                  ลิงก์รูปภาพพื้นหลังสไลด์ (Image URL) *
+                </label>
+                <input
+                  type="url"
+                  value={editingSlide.imageUrl || ""}
+                  onChange={(e) => setEditingSlide({ ...editingSlide, imageUrl: e.target.value })}
+                  placeholder="https://..."
+                  className="w-full p-2 rounded border border-[#B8923A]/40 bg-white"
+                />
+                <span className="text-[11px] text-[#1B1226]/60 mt-0.5 block">
+                  แนะนำภาพแนวนอนอัตราส่วน 16:9 หรือ 21:9 ความละเอียดสูง
+                </span>
+                {editingSlide.imageUrl && (
+                  <div className="mt-2 aspect-[21/9] w-full max-w-sm rounded overflow-hidden border border-[#B8923A]/30">
+                    <img
+                      src={editingSlide.imageUrl}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#1B1226] mb-1">
+                  ลิงก์ปลายทางเมื่อคลิก (Link URL)
+                </label>
+                <input
+                  type="text"
+                  value={editingSlide.linkUrl || ""}
+                  onChange={(e) => setEditingSlide({ ...editingSlide, linkUrl: e.target.value })}
+                  placeholder="เช่น /news/pr-1 หรือ https://..."
+                  className="w-full p-2 rounded border border-[#B8923A]/40 bg-white"
+                />
+              </div>
+
+              <div className="pt-2">
+                <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editingSlide.published ?? true}
+                    onChange={(e) =>
+                      setEditingSlide({ ...editingSlide, published: e.target.checked })
+                    }
+                    className="w-4 h-4 text-[#4B1F7A] accent-[#4B1F7A]"
+                  />
+                  <span>เปิดใช้งานและแสดงผลบนหน้าแรก (5 วินาทีต่อภาพ)</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-[#B8923A]/20 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsSlideModalOpen(false)}
+                className="px-4 py-2 rounded-full border border-[#B8923A]/40 text-xs"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!editingSlide.title) {
+                    alert("กรุณาระบุหัวข้อสไลด์");
+                    return;
+                  }
+                  await saveHeroSlide(editingSlide);
+                  showToast("บันทึกสไลด์หน้าแรกเรียบร้อยแล้ว");
+                  setIsSlideModalOpen(false);
+                  reloadData();
+                }}
+                className="px-6 py-2 rounded-full bg-[#4B1F7A] text-[#FAF7F0] text-xs font-medium hover:bg-[#2A1245]"
+              >
+                บันทึกสไลด์
               </button>
             </div>
           </div>

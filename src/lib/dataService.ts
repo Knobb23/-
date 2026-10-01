@@ -39,6 +39,7 @@ import {
   ServiceLinkItem,
   GalleryPhoto,
   SiteStatistics,
+  HeroSlideItem,
 } from "@/src/types";
 
 // ==========================================
@@ -1504,3 +1505,126 @@ export async function submitContactMessage(payload: {
     console.warn("Could not send contact message to Firestore, noted in mock:", error);
   }
 }
+
+// ==========================================
+// HERO SLIDES SERVICE (สำหรับสไลด์ข่าวสารหน้าแรก วน 5 วินาที)
+// ==========================================
+
+export const DEFAULT_HERO_SLIDES: HeroSlideItem[] = [
+  {
+    id: "slide-1",
+    title: "เปิดรับสมัครสมาชิกชมรมและชุมนุมนักเรียน ประจำภาคเรียนที่ 1/2569",
+    subtitle: "ค้นหาความสนใจ พัฒนาทักษะความเป็นผู้นำ และสร้างมิตรภาพผ่านกิจกรรมชุมนุมกว่า 25 ชมรม",
+    tag: "ข่าวด่วนประชาสัมพันธ์",
+    imageUrl: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=1600&auto=format&fit=crop",
+    linkUrl: "/news/pr-1",
+    order: 1,
+    published: true,
+  },
+  {
+    id: "slide-2",
+    title: "ขอเชิญร่วมงานนิทรรศการวิชาการและเปิดบ้านสาธิต ม.พะเยา 'Open House 2026'",
+    subtitle: "ชมนิทรรศการผลงานโครงงานวิทยาศาสตร์ นวัตกรรม และการแสดงความสามารถทางวิชาการของนักเรียน",
+    tag: "กิจกรรมเด่น",
+    imageUrl: "https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=1600&auto=format&fit=crop",
+    linkUrl: "/news/pr-2",
+    order: 2,
+    published: true,
+  },
+  {
+    id: "slide-3",
+    title: "องค์การนักเรียนเปิดช่องทางรับฟังความคิดเห็นและข้อร้องเรียนออนไลน์ 24 ชม.",
+    subtitle: "ร่วมส่งเสียงสะท้อนเพื่อการพัฒนาโรงเรียน ตรวจสอบสถานะการดำเนินงานได้อย่างโปร่งใส",
+    tag: "บริการนักเรียน",
+    imageUrl: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=1600&auto=format&fit=crop",
+    linkUrl: "/complaint",
+    order: 3,
+    published: true,
+  },
+  {
+    id: "slide-4",
+    title: "ประกาศผลการเลือกตั้งคณะกรรมการองค์การนักเรียน ประจำปีการศึกษา 2569",
+    subtitle: "ขอแสดงความยินดีกับคณะกรรมการชุดใหม่ พร้อมเดินหน้าขับเคลื่อนสิทธิและสวัสดิการของนักเรียน",
+    tag: "ประกาศผลทางการ",
+    imageUrl: "https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=1600&auto=format&fit=crop",
+    linkUrl: "/about/board",
+    order: 4,
+    published: true,
+  },
+];
+
+let localHeroSlides: HeroSlideItem[] = [...DEFAULT_HERO_SLIDES];
+
+export async function getHeroSlides(): Promise<HeroSlideItem[]> {
+  try {
+    const snap = await getDocs(collection(db, "hero_slides"));
+    if (!snap.empty) {
+      const items: HeroSlideItem[] = [];
+      snap.forEach((d) => items.push(d.data() as HeroSlideItem));
+      items.sort((a, b) => a.order - b.order);
+      localHeroSlides = items;
+      return items.filter((item) => item.published);
+    }
+  } catch (error) {
+    console.warn("Could not fetch hero slides from Firestore, using local slides:", error);
+  }
+  return localHeroSlides.filter((item) => item.published);
+}
+
+export async function getAllHeroSlides(): Promise<HeroSlideItem[]> {
+  try {
+    const snap = await getDocs(collection(db, "hero_slides"));
+    if (!snap.empty) {
+      const items: HeroSlideItem[] = [];
+      snap.forEach((d) => items.push(d.data() as HeroSlideItem));
+      items.sort((a, b) => a.order - b.order);
+      localHeroSlides = items;
+      return items;
+    }
+  } catch (error) {
+    console.warn("Could not fetch hero slides from Firestore, using local slides:", error);
+  }
+  return localHeroSlides;
+}
+
+export async function saveHeroSlide(slide: Partial<HeroSlideItem>): Promise<HeroSlideItem> {
+  const slideId = slide.id || `slide-${Date.now()}`;
+  const fullSlide: HeroSlideItem = {
+    id: slideId,
+    title: slide.title || "หัวข้อข่าวเด่น",
+    subtitle: slide.subtitle || "",
+    tag: slide.tag || "ข่าวประชาสัมพันธ์",
+    imageUrl: slide.imageUrl || "https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=1600&auto=format&fit=crop",
+    linkUrl: slide.linkUrl || "/news",
+    isExternal: slide.isExternal ?? (slide.linkUrl?.startsWith("http") || false),
+    order: slide.order ?? (localHeroSlides.length + 1),
+    published: slide.published ?? true,
+    createdAt: slide.createdAt || new Date().toISOString(),
+  };
+
+  try {
+    await setDoc(doc(db, "hero_slides", slideId), fullSlide);
+  } catch (error) {
+    console.warn("Could not save hero slide to Firestore, saving locally:", error);
+  }
+
+  const existingIndex = localHeroSlides.findIndex((s) => s.id === slideId);
+  if (existingIndex >= 0) {
+    localHeroSlides[existingIndex] = fullSlide;
+  } else {
+    localHeroSlides.push(fullSlide);
+  }
+  localHeroSlides.sort((a, b) => a.order - b.order);
+
+  return fullSlide;
+}
+
+export async function deleteHeroSlide(slideId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, "hero_slides", slideId));
+  } catch (error) {
+    console.warn("Could not delete hero slide from Firestore, deleting locally:", error);
+  }
+  localHeroSlides = localHeroSlides.filter((s) => s.id !== slideId);
+}
+
