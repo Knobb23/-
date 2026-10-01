@@ -4,7 +4,7 @@
  */
 
 import React, { lazy, Suspense } from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, createHashRouter, RouterProvider } from "react-router-dom";
 import { RootLayout } from "./components/layout/RootLayout";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
@@ -40,7 +40,7 @@ const PageLoader = () => (
   </div>
 );
 
-const router = createBrowserRouter([
+const routes = [
   {
     path: "/",
     element: <RootLayout />,
@@ -186,7 +186,15 @@ const router = createBrowserRouter([
       },
     ],
   },
-]);
+];
+
+// Automatically detect GitHub Pages domain (e.g. knobb23.github.io)
+// GitHub Pages hosts apps under a subdirectory path (/repository-name/) and lacks native SPA rewrite,
+// so HashRouter ensures 100% zero-configuration routing and never produces a 404/blank screen on refresh.
+const isGitHubPages =
+  typeof window !== "undefined" && window.location.hostname.includes("github.io");
+
+const router = isGitHubPages ? createHashRouter(routes) : createBrowserRouter(routes);
 
 export default function App() {
   return <RouterProvider router={router} />;
