@@ -26,7 +26,9 @@ import {
   Eye,
   X,
   Database,
+  FacebookLogo,
 } from "@phosphor-icons/react";
+import { FacebookPostImporter } from "@/src/components/admin/FacebookPostImporter";
 import { auth, googleProvider } from "@/src/lib/firebase";
 import { ADMIN_BOOTSTRAP_EMAILS, SITE_CONFIG } from "@/src/config/site";
 import {
@@ -93,6 +95,7 @@ export const AdminPage: React.FC = () => {
   // Modals & Forms
   const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
   const [editingNews, setEditingNews] = useState<Partial<NewsItem> | null>(null);
+  const [isFacebookImporterOpen, setIsFacebookImporterOpen] = useState(false);
 
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Partial<EventItem> | null>(null);
@@ -577,22 +580,34 @@ export const AdminPage: React.FC = () => {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingNews({
-                    category: "pr",
-                    published: true,
-                    pinned: false,
-                    content: "<p>พิมพ์เนื้อหาข่าว...</p>",
-                  });
-                  setIsNewsModalOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#4B1F7A] text-[#FAF7F0] text-xs font-medium hover:bg-[#2A1245] transition-colors"
-              >
-                <Plus weight="bold" className="w-3.5 h-3.5" />
-                <span>เพิ่มข่าวสารใหม่</span>
-              </button>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsFacebookImporterOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1877F2]/10 border border-[#1877F2]/30 text-[#1877F2] text-xs font-medium hover:bg-[#1877F2] hover:text-white transition-colors shadow-sm"
+                  title="นำเข้าข้อความและรูปภาพจาก Facebook โพสต์"
+                >
+                  <FacebookLogo weight="fill" className="w-4 h-4" />
+                  <span>นำเข้าด่วนจาก Facebook</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingNews({
+                      category: "pr",
+                      published: true,
+                      pinned: false,
+                      content: "<p>พิมพ์เนื้อหาข่าว...</p>",
+                    });
+                    setIsNewsModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#4B1F7A] text-[#FAF7F0] text-xs font-medium hover:bg-[#2A1245] transition-colors"
+                >
+                  <Plus weight="bold" className="w-3.5 h-3.5" />
+                  <span>เพิ่มข่าวสารใหม่</span>
+                </button>
+              </div>
             </div>
 
             {/* News Table */}
@@ -1316,9 +1331,25 @@ export const AdminPage: React.FC = () => {
               <X weight="bold" className="w-5 h-5" />
             </button>
 
-            <h3 className="font-serif text-xl font-bold text-[#1B1226]">
-              {editingNews.id ? "แก้ไขข่าวสาร" : "สร้างข่าวสารใหม่"}
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-serif text-xl font-bold text-[#1B1226]">
+                {editingNews.id ? "แก้ไขข่าวสาร" : "สร้างข่าวสารใหม่"}
+              </h3>
+
+              {!editingNews.id && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsNewsModalOpen(false);
+                    setIsFacebookImporterOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1877F2]/10 text-[#1877F2] hover:bg-[#1877F2] hover:text-white text-xs font-medium transition-colors"
+                >
+                  <FacebookLogo weight="fill" className="w-3.5 h-3.5" />
+                  <span>นำเข้าจากโพสต์ Facebook</span>
+                </button>
+              )}
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -1733,6 +1764,21 @@ export const AdminPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* FACEBOOK POST QUICK IMPORTER MODAL */}
+      <FacebookPostImporter
+        isOpen={isFacebookImporterOpen}
+        onClose={() => setIsFacebookImporterOpen(false)}
+        onSaveDirectly={async (news) => {
+          await saveNewsItem(news);
+          showToast("นำเข้าและเผยแพร่ข่าวสารจาก Facebook เรียบร้อยแล้ว");
+          reloadData();
+        }}
+        onEditInForm={(news) => {
+          setEditingNews(news);
+          setIsNewsModalOpen(true);
+        }}
+      />
     </div>
   );
 };

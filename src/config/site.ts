@@ -27,8 +27,10 @@ export const SITE_CONFIG = {
   address: "19 หมู่ 2 ตำบลแม่กา อำเภอเมืองพะเยา จังหวัดพะเยา 56000",
   phone: "054-466-666 ต่อ 1450",
   email: "satit@up.ac.th",
-  facebookUrl: "https://www.facebook.com/satitup",
+  facebookUrl: "https://www.facebook.com/profile.php?id=61591508559552",
   facebookName: "องค์การนักเรียน โรงเรียนสาธิตมหาวิทยาลัยพะเยา",
+  academicSystemUrl: "https://academic.satit.up.ac.th/",
+  studentAffairsSystemUrl: "https://student-affairs.satit.up.ac.th/login",
   // พิกัดโรงเรียนสาธิต ม.พะเยา สำหรับ Google Maps Embed
   mapsEmbedUrl:
     "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3774.2057371977727!2d99.89388337583695!3d18.966453982213768!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x30d833446059d435%3A0x633e8b0bfa5188f6!2z4LmC4Lij4LiH4LmA4Lij4Li14Lii4LiZ4Liq4Liy4LiY4Li04LiV4Lih4Lir4Liy4Lin4Li04LiX4Lii4Liy4Lil4Lix4Lii4Lie4Liw4LmA4Lii4Liy!5e0!3m2!1sth!2sth!4v1710000000000!5m2!1sth!2sth",
@@ -39,7 +41,8 @@ export interface NavItem {
   label: string;
   href: string;
   description?: string;
-  children?: { label: string; href: string; description: string }[];
+  isExternal?: boolean;
+  children?: { label: string; href: string; description: string; isExternal?: boolean }[];
 }
 
 export const MAIN_NAV: NavItem[] = [
@@ -69,6 +72,32 @@ export const MAIN_NAV: NavItem[] = [
       { label: "คณะกรรมการ", href: "/about/board", description: "โครงสร้างและรายนามคณะกรรมการประจำปีการศึกษา" },
       { label: "ครูที่ปรึกษา", href: "/about/advisors", description: "คณะครูอาจารย์ที่ปรึกษาองค์การนักเรียน" },
       { label: "ทำเนียบประธาน", href: "/about/hall", description: "ทำเนียบประธานองค์การนักเรียนในแต่ละปีการศึกษา" },
+    ],
+  },
+  {
+    label: "ระบบที่เกี่ยวข้อง",
+    href: "https://academic.satit.up.ac.th/",
+    description: "ระบบบริการสารสนเทศและการบริหารงานโรงเรียน",
+    isExternal: true,
+    children: [
+      {
+        label: "ระบบบริหารงานวิชาการ",
+        href: "https://academic.satit.up.ac.th/",
+        description: "ระบบตรวจสอบผลการเรียน งานวิชาการ และตารางเรียน",
+        isExternal: true,
+      },
+      {
+        label: "ระบบบริหารงานกิจการนักเรียน",
+        href: "https://student-affairs.satit.up.ac.th/login",
+        description: "ระบบงานกิจการนักเรียน การดูแลความประพฤติ และสถิติการมาเรียน",
+        isExternal: true,
+      },
+      {
+        label: "Facebook เพจองค์การนักเรียน",
+        href: "https://www.facebook.com/profile.php?id=61591508559552",
+        description: "ติดตามข่าวสาร อัปเดตกิจกรรมอย่างรวดเร็วผ่านแฟนเพจทางการ",
+        isExternal: true,
+      },
     ],
   },
   { label: "ความโปร่งใส", href: "/transparency", description: "รายงานสถิติการดำเนินงานและงบประมาณ" },

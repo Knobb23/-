@@ -126,23 +126,47 @@ export const Header: React.FC = () => {
                         {item.description || item.label}
                       </div>
                       <div className="space-y-1">
-                        {item.children?.map((child) => (
-                          <Link
-                            key={child.label}
-                            to={child.href}
-                            className="block px-3 py-2 rounded-[3px] hover:bg-[#EDE6F5] transition-colors group/item"
-                          >
-                            <div className="text-sm font-medium text-[#1B1226] group-hover/item:text-[#4B1F7A] flex items-center justify-between">
-                              <span>{child.label}</span>
-                              <span className="text-xs text-[#9C7A2B] opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                →
-                              </span>
-                            </div>
-                            <div className="text-xs text-[#1B1226]/65 mt-0.5 line-clamp-1">
-                              {child.description}
-                            </div>
-                          </Link>
-                        ))}
+                        {item.children?.map((child) => {
+                          const isExternal = child.isExternal || child.href.startsWith("http");
+                          if (isExternal) {
+                            return (
+                              <a
+                                key={child.label}
+                                href={child.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block px-3 py-2 rounded-[3px] hover:bg-[#EDE6F5] transition-colors group/item"
+                              >
+                                <div className="text-sm font-medium text-[#1B1226] group-hover/item:text-[#4B1F7A] flex items-center justify-between">
+                                  <span>{child.label}</span>
+                                  <span className="text-xs text-[#9C7A2B] opacity-70 group-hover/item:opacity-100 transition-opacity">
+                                    ↗
+                                  </span>
+                                </div>
+                                <div className="text-xs text-[#1B1226]/65 mt-0.5 line-clamp-1">
+                                  {child.description}
+                                </div>
+                              </a>
+                            );
+                          }
+                          return (
+                            <Link
+                              key={child.label}
+                              to={child.href}
+                              className="block px-3 py-2 rounded-[3px] hover:bg-[#EDE6F5] transition-colors group/item"
+                            >
+                              <div className="text-sm font-medium text-[#1B1226] group-hover/item:text-[#4B1F7A] flex items-center justify-between">
+                                <span>{child.label}</span>
+                                <span className="text-xs text-[#9C7A2B] opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                  →
+                                </span>
+                              </div>
+                              <div className="text-xs text-[#1B1226]/65 mt-0.5 line-clamp-1">
+                                {child.description}
+                              </div>
+                            </Link>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -218,36 +242,71 @@ export const Header: React.FC = () => {
 
               {/* Main Links List */}
               <nav className="mt-8 space-y-4">
-                {MAIN_NAV.map((item, idx) => (
-                  <motion.div
-                    key={item.label}
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.05 * idx, duration: 0.3 }}
-                  >
-                    <Link
-                      to={item.href}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="block font-serif text-2xl text-[#FAF7F0] hover:text-[#D9B867] transition-colors py-1.5"
+                {MAIN_NAV.map((item, idx) => {
+                  const isItemExternal = item.isExternal || item.href.startsWith("http");
+
+                  return (
+                    <motion.div
+                      key={item.label}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05 * idx, duration: 0.3 }}
                     >
-                      {item.label}
-                    </Link>
-                    {item.children && (
-                      <div className="ml-4 mt-1 border-l border-[#FAF7F0]/20 pl-3 space-y-2">
-                        {item.children.map((child) => (
-                          <Link
-                            key={child.label}
-                            to={child.href}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="block text-sm text-[#FAF7F0]/70 hover:text-[#D9B867] py-1"
-                          >
-                            {child.label}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
+                      {isItemExternal ? (
+                        <a
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center justify-between font-serif text-2xl text-[#FAF7F0] hover:text-[#D9B867] transition-colors py-1.5"
+                        >
+                          <span>{item.label}</span>
+                          <span className="text-base text-[#D9B867]">↗</span>
+                        </a>
+                      ) : (
+                        <Link
+                          to={item.href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="block font-serif text-2xl text-[#FAF7F0] hover:text-[#D9B867] transition-colors py-1.5"
+                        >
+                          {item.label}
+                        </Link>
+                      )}
+                      {item.children && (
+                        <div className="ml-4 mt-1 border-l border-[#FAF7F0]/20 pl-3 space-y-2">
+                          {item.children.map((child) => {
+                            const isChildExternal = child.isExternal || child.href.startsWith("http");
+                            if (isChildExternal) {
+                              return (
+                                <a
+                                  key={child.label}
+                                  href={child.href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={() => setMobileMenuOpen(false)}
+                                  className="flex items-center justify-between text-sm text-[#FAF7F0]/80 hover:text-[#D9B867] py-1"
+                                >
+                                  <span>{child.label}</span>
+                                  <span className="text-xs text-[#D9B867]/80">↗</span>
+                                </a>
+                              );
+                            }
+                            return (
+                              <Link
+                                key={child.label}
+                                to={child.href}
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="block text-sm text-[#FAF7F0]/70 hover:text-[#D9B867] py-1"
+                              >
+                                {child.label}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
               </nav>
             </div>
 
