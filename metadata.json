@@ -1,0 +1,6 @@
+{
+  "name": "องค์การนักเรียน โรงเรียนสาธิตมหาวิทยาลัยพะเยา",
+  "description": "เว็บไซต์ทางการขององค์การนักเรียน โรงเรียนสาธิตมหาวิทยาลัยพะเยา (DeSUP Student Organization) ข่าวสาร กิจกรรม เอกสาร และระบบรับเรื่องร้องเรียน",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

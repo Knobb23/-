@@ -1,0 +1,159 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #1B1226;
+  --color-violet-900: #2A1245;
+  --color-violet-700: #4B1F7A;
+  --color-violet-500: #6B3FA0;
+  --color-violet-100: #EDE6F5;
+  --color-gold-600: #9C7A2B;
+  --color-gold-500: #B8923A;
+  --color-gold-300: #D9B867;
+  --color-champagne: #F3E9D0;
+  --color-paper: #FAF7F0;
+
+  --font-serif: 'Cormorant Garamond', 'Noto Serif Thai', serif;
+  --font-sans: 'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif;
+  --font-num: 'Cormorant Garamond', serif;
+
+  --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root {
+  --color-ink: #1B1226;
+  --color-violet-900: #2A1245;
+  --color-violet-700: #4B1F7A;
+  --color-violet-500: #6B3FA0;
+  --color-violet-100: #EDE6F5;
+  --color-gold-600: #9C7A2B;
+  --color-gold-500: #B8923A;
+  --color-gold-300: #D9B867;
+  --color-champagne: #F3E9D0;
+  --color-paper: #FAF7F0;
+  --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Base Body Styles */
+html {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: 'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-size: 16px;
+  line-height: 1.75;
+  min-height: 100vh;
+}
+
+@media (min-width: 1024px) {
+  body {
+    font-size: 17.5px;
+    line-height: 1.75;
+  }
+}
+
+/* Headings typography rules */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Cormorant Garamond', 'Noto Serif Thai', serif;
+  line-height: 1.25;
+  color: var(--color-ink);
+  letter-spacing: -0.01em;
+}
+
+/* 14. Text Selection */
+::selection {
+  background-color: #EDE6F5;
+  color: #2A1245;
+}
+
+::-moz-selection {
+  background-color: #EDE6F5;
+  color: #2A1245;
+}
+
+/* Paper Grain Texture (feTurbulence Data URI) */
+.paper-grain-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* 13. Gold foil text in header logo */
+.foil-gold-text {
+  background: linear-gradient(135deg, #B8923A 0%, #E8D395 50%, #9C7A2B 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  display: inline-block;
+  background-size: 200% auto;
+  transition: background-position 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.foil-gold-text:hover {
+  background-position: right center;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FAF7F0;
+}
+::-webkit-scrollbar-thumb {
+  background: #D9B867;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B8923A;
+}
+
+/* Underline Secondary Button Animation */
+.editorial-btn-secondary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-ink);
+  font-family: 'IBM Plex Sans Thai', sans-serif;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.editorial-btn-secondary::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background-color: var(--color-gold-500);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.editorial-btn-secondary:hover::after {
+  transform: scaleX(1);
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,191 @@
+{
+  "entities": {
+    "News": {
+      "title": "News",
+      "description": "ข่าวประชาสัมพันธ์ กิจกรรม และประกาศขององค์การนักเรียน",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "category": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "content": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "galleryUrls": { "type": "array" },
+        "attachments": { "type": "array" },
+        "videoUrl": { "type": "string" },
+        "published": { "type": "boolean" },
+        "pinned": { "type": "boolean" },
+        "views": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "category", "content", "published", "views", "createdAt"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "กิจกรรมและกำหนดการขององค์การนักเรียน",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string" },
+        "location": { "type": "string" },
+        "startAt": { "type": "string" },
+        "endAt": { "type": "string" },
+        "allDay": { "type": "boolean" },
+        "coverUrl": { "type": "string" },
+        "published": { "type": "boolean" }
+      },
+      "required": ["title", "type", "location", "startAt", "published"]
+    },
+    "Download": {
+      "title": "Download",
+      "description": "เอกสาร แบบฟอร์ม และข้อบังคับสำหรับดาวน์โหลด",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "fileType": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "downloads": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["title", "category", "fileType", "fileUrl", "downloads", "createdAt"]
+    },
+    "Person": {
+      "title": "Person",
+      "description": "คณะกรรมการ ครูที่ปรึกษา และทำเนียบประธาน",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "position": { "type": "string" },
+        "department": { "type": "string" },
+        "grade": { "type": "string" },
+        "yearTH": { "type": "number" },
+        "photoUrl": { "type": "string" },
+        "quote": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["name", "role", "position", "yearTH", "order"]
+    },
+    "Complaint": {
+      "title": "Complaint",
+      "description": "เรื่องร้องเรียน ข้อเสนอแนะ และเบาะแส",
+      "type": "object",
+      "properties": {
+        "trackingCode": { "type": "string" },
+        "type": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "location": { "type": "string" },
+        "imageUrls": { "type": "array" },
+        "anonymous": { "type": "boolean" },
+        "status": { "type": "string" },
+        "publicReplies": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["trackingCode", "type", "title", "body", "status", "createdAt"]
+    },
+    "ComplaintContact": {
+      "title": "ComplaintContact",
+      "description": "ข้อมูลติดต่อผู้ร้องเรียน (Private subcollection)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "gradeRoom": { "type": "string" },
+        "contactChannel": { "type": "string" }
+      }
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "งบประมาณประจำปีการศึกษา",
+      "type": "object",
+      "properties": {
+        "yearTH": { "type": "number" },
+        "totalBudget": { "type": "number" },
+        "items": { "type": "array" }
+      },
+      "required": ["yearTH", "totalBudget", "items"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "การตั้งค่าเว็บไซต์",
+      "type": "object",
+      "properties": {
+        "ticker": { "type": "array" },
+        "links": { "type": "array" },
+        "contactInfo": { "type": "object" },
+        "statsOverride": { "type": "object" },
+        "totalVisits": { "type": "number" }
+      }
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "สิทธิ์การเข้าถึงสำหรับผู้ดูแลระบบ",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["role"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "ข้อความจากแบบฟอร์มติดต่อ",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "message", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/news/{id}": {
+      "schema": "News",
+      "description": "รายการข่าวประชาสัมพันธ์และประกาศ"
+    },
+    "/events/{id}": {
+      "schema": "Event",
+      "description": "กิจกรรมและปฏิทินงาน"
+    },
+    "/downloads/{id}": {
+      "schema": "Download",
+      "description": "เอกสารดาวน์โหลด"
+    },
+    "/people/{id}": {
+      "schema": "Person",
+      "description": "ข้อมูลคณะกรรมการ ครูที่ปรึกษา และทำเนียบประธาน"
+    },
+    "/complaints/{trackingCode}": {
+      "schema": "Complaint",
+      "description": "เรื่องร้องเรียนสาธารณะ"
+    },
+    "/complaints/{trackingCode}/private/contact": {
+      "schema": "ComplaintContact",
+      "description": "ข้อมูลติดต่อผู้ร้องเรียน (เฉพาะแอดมิน)"
+    },
+    "/budgets/{yearTH}": {
+      "schema": "Budget",
+      "description": "งบประมาณประจำปีการศึกษา"
+    },
+    "/settings/site": {
+      "schema": "SiteSettings",
+      "description": "การตั้งค่าเว็บไซต์"
+    },
+    "/admins/{uid}": {
+      "schema": "Admin",
+      "description": "สิทธิ์ผู้ดูแลระบบ"
+    },
+    "/messages/{id}": {
+      "schema": "Message",
+      "description": "ข้อความติดต่อ"
+    }
+  }
+}

@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default Deny All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSuperAdminEmail() {
+      return isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        (request.auth.token.email == '67342100@up.ac.th' || request.auth.token.email == 'supakornsrion@gmail.com');
+    }
+
+    function isAdmin() {
+      return isSuperAdminEmail() ||
+        (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Admins Collection
+    match /admins/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isSuperAdminEmail();
+    }
+
+    // News Collection
+    match /news/{id} {
+      allow read: if resource.data.published == true || isAdmin();
+      // Allow view increment by 1
+      allow update: if (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) &&
+        request.resource.data.views == resource.data.views + 1
+      ) || isAdmin();
+      allow create, delete: if isAdmin();
+    }
+
+    // Events Collection
+    match /events/{id} {
+      allow read: if resource.data.published == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Downloads Collection
+    match /downloads/{id} {
+      allow read: if true;
+      // Allow downloads increment by 1
+      allow update: if (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['downloads']) &&
+        request.resource.data.downloads == resource.data.downloads + 1
+      ) || isAdmin();
+      allow create, delete: if isAdmin();
+    }
+
+    // People Collection (Board, Advisors, Presidents)
+    match /people/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Budgets Collection
+    match /budgets/{yearTH} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Site Settings Collection
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Messages Collection (Contact Form)
+    match /messages/{id} {
+      allow create: if request.resource.data.name is string &&
+                    request.resource.data.name.size() > 0 &&
+                    request.resource.data.name.size() <= 200 &&
+                    request.resource.data.message is string &&
+                    request.resource.data.message.size() > 0 &&
+                    request.resource.data.message.size() <= 3000;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Complaints Collection
+    match /complaints/{trackingCode} {
+      // Anyone can create a complaint with valid initial status
+      allow create: if request.resource.data.trackingCode == trackingCode &&
+                    request.resource.data.status == 'received' &&
+                    request.resource.data.title is string &&
+                    request.resource.data.title.size() >= 5 &&
+                    request.resource.data.title.size() <= 300 &&
+                    request.resource.data.body is string &&
+                    request.resource.data.body.size() >= 20 &&
+                    request.resource.data.body.size() <= 5000;
+
+      // Allow single get by document ID (tracking code), forbid list/query for public
+      allow get: if true;
+      allow list: if isAdmin();
+
+      // Updates and deletes are reserved for admins
+      allow update, delete: if isAdmin();
+
+      // Private contact subcollection
+      match /private/contact {
+        allow create: if true; // Created along with the complaint
+        allow read, write: if isAdmin();
+      }
+    }
+  }
+}
