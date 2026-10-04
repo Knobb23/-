@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { animate, useInView } from "motion/react";
-import { getSiteStatistics } from "@/src/lib/dataService";
+import { getSiteStatistics, MOCK_STATS } from "@/src/lib/dataService";
 import { SiteStatistics } from "@/src/types";
 
 interface CountUpProps {
@@ -38,10 +38,12 @@ const CountUp: React.FC<CountUpProps> = ({ to, decimals = 0, suffix = "" }) => {
 };
 
 export const StatsSection: React.FC = () => {
-  const [stats, setStats] = useState<SiteStatistics | null>(null);
+  const [stats, setStats] = useState<SiteStatistics>(MOCK_STATS);
 
   useEffect(() => {
-    getSiteStatistics().then(setStats);
+    getSiteStatistics().then((data) => {
+      if (data) setStats(data);
+    });
   }, []);
 
   if (!stats) return null;

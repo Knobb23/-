@@ -3,12 +3,12 @@ import { Link } from "react-router-dom";
 import useEmblaCarousel from "embla-carousel-react";
 import { CaretLeft, CaretRight, MapPin, Clock } from "@phosphor-icons/react";
 import { EventItem } from "@/src/types";
-import { getUpcomingEvents } from "@/src/lib/dataService";
+import { getUpcomingEvents, MOCK_EVENTS } from "@/src/lib/dataService";
 import { getEventDateParts, EVENT_TYPE_NAMES } from "@/src/lib/format";
 import { SectionHeading } from "@/src/components/common/SectionHeading";
 
 export const UpcomingEventsSection: React.FC = () => {
-  const [events, setEvents] = useState<EventItem[]>([]);
+  const [events, setEvents] = useState<EventItem[]>(() => MOCK_EVENTS.slice(0, 8));
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: "start",
     slidesToScroll: 1,
@@ -25,7 +25,9 @@ export const UpcomingEventsSection: React.FC = () => {
   }, [emblaApi]);
 
   useEffect(() => {
-    getUpcomingEvents(8).then(setEvents);
+    getUpcomingEvents(8).then((data) => {
+      if (data && data.length > 0) setEvents(data);
+    });
   }, []);
 
   useEffect(() => {

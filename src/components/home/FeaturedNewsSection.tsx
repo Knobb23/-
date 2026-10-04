@@ -2,15 +2,21 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Eye, CalendarBlank } from "@phosphor-icons/react";
 import { NewsItem } from "@/src/types";
-import { getFeaturedNews } from "@/src/lib/dataService";
+import { getFeaturedNews, MOCK_NEWS } from "@/src/lib/dataService";
 import { formatThaiDate, NEWS_CATEGORY_NAMES } from "@/src/lib/format";
 import { SectionHeading } from "@/src/components/common/SectionHeading";
 
 export const FeaturedNewsSection: React.FC = () => {
-  const [featured, setFeatured] = useState<{ main: NewsItem; secondary: NewsItem[] } | null>(null);
+  const [featured, setFeatured] = useState<{ main: NewsItem; secondary: NewsItem[] }>(() => {
+    const pinned = MOCK_NEWS.find((n) => n.pinned) || MOCK_NEWS[0];
+    const others = MOCK_NEWS.filter((n) => n.id !== pinned.id).slice(0, 4);
+    return { main: pinned, secondary: others };
+  });
 
   useEffect(() => {
-    getFeaturedNews().then(setFeatured);
+    getFeaturedNews().then((data) => {
+      if (data && data.main) setFeatured(data);
+    });
   }, []);
 
   if (!featured || !featured.main) return null;

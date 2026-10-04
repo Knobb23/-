@@ -124,13 +124,34 @@
     },
     "Admin": {
       "title": "Admin",
-      "description": "สิทธิ์การเข้าถึงสำหรับผู้ดูแลระบบ",
+      "description": "สิทธิ์การเข้าถึงสำหรับผู้ดูแลระบบ (ID = อีเมลตัวพิมพ์เล็ก)",
       "type": "object",
       "properties": {
-        "role": { "type": "string" },
-        "email": { "type": "string" }
+        "role": { "type": "string", "enum": ["super_admin", "admin", "editor"] },
+        "displayName": { "type": "string" },
+        "active": { "type": "boolean" },
+        "addedBy": { "type": "string" },
+        "addedAt": { "type": "string" },
+        "lastLoginAt": { "type": "string" }
       },
-      "required": ["role"]
+      "required": ["role", "displayName", "active", "addedBy", "addedAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "บันทึกประวัติการให้ เปลี่ยน หรือถอนสิทธิ์ผู้ดูแลระบบ",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string", "enum": ["grant", "role_change", "status_change", "revoke"] },
+        "targetEmail": { "type": "string" },
+        "performedBy": { "type": "string" },
+        "previousRole": { "type": "string" },
+        "newRole": { "type": "string" },
+        "previousActive": { "type": "boolean" },
+        "newActive": { "type": "boolean" },
+        "note": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["action", "targetEmail", "performedBy", "createdAt"]
     },
     "Message": {
       "title": "Message",
@@ -179,9 +200,13 @@
       "schema": "SiteSettings",
       "description": "การตั้งค่าเว็บไซต์"
     },
-    "/admins/{uid}": {
+    "/admins/{email}": {
       "schema": "Admin",
-      "description": "สิทธิ์ผู้ดูแลระบบ"
+      "description": "สิทธิ์ผู้ดูแลระบบ (ID = อีเมลตัวพิมพ์เล็ก)"
+    },
+    "/auditLogs/{id}": {
+      "schema": "AuditLog",
+      "description": "บันทึกประวัติการเปลี่ยนแปลงสิทธิ์ (เฉพาะ super_admin อ่านได้)"
     },
     "/messages/{id}": {
       "schema": "Message",

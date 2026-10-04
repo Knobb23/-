@@ -179,6 +179,14 @@ const routes = [
           </Suspense>
         ),
       },
+      {
+        path: "admin/users",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <AdminPage defaultTab="users" />
+          </Suspense>
+        ),
+      },
       // 404 Route
       {
         path: "*",

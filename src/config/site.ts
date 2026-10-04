@@ -16,6 +16,7 @@ export const EMBLEM_URL = "https://i.postimg.cc/KvCqGrBG/IMG-5744.png";
 export const ADMIN_BOOTSTRAP_EMAILS = [
   "67342100@up.ac.th",
   "supakornsrion@gmail.com",
+  "satit.su@up.ac.th",
 ];
 
 export const SITE_CONFIG = {

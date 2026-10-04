@@ -169,3 +169,31 @@ export interface HeroSlideItem {
   published: boolean;
   createdAt?: string;
 }
+
+export type AdminRole = "super_admin" | "admin" | "editor";
+
+export interface AdminUser {
+  email: string; // Document ID (lowercase)
+  role: AdminRole;
+  displayName: string;
+  active: boolean;
+  addedBy: string;
+  addedAt: string;
+  updatedAt?: string;
+  lastLoginAt?: string;
+}
+
+export type AuditLogAction = "grant" | "role_change" | "status_change" | "revoke";
+
+export interface AuditLogItem {
+  id: string;
+  action: AuditLogAction;
+  targetEmail: string;
+  performedBy: string;
+  previousRole?: AdminRole | null;
+  newRole?: AdminRole | null;
+  previousActive?: boolean | null;
+  newActive?: boolean | null;
+  note?: string;
+  createdAt: string;
+}

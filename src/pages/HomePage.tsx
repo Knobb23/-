@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "motion/react";
 import { HeroSection } from "@/src/components/home/HeroSection";
 import { Ticker } from "@/src/components/layout/Ticker";
 import { FeaturedNewsSection } from "@/src/components/home/FeaturedNewsSection";
@@ -7,6 +8,22 @@ import { UpcomingEventsSection } from "@/src/components/home/UpcomingEventsSecti
 import { ServicesSection } from "@/src/components/home/ServicesSection";
 import { GallerySection } from "@/src/components/home/GallerySection";
 import { PresidentSection } from "@/src/components/home/PresidentSection";
+
+interface ScrollRevealSectionProps {
+  children: React.ReactNode;
+  delay?: number;
+}
+
+const ScrollRevealSection: React.FC<ScrollRevealSectionProps> = ({ children, delay = 0 }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 36 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, margin: "-60px" }}
+    transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
+  >
+    {children}
+  </motion.div>
+);
 
 export const HomePage: React.FC = () => {
   return (
@@ -18,22 +35,34 @@ export const HomePage: React.FC = () => {
       <Ticker />
 
       {/* 01: Featured News */}
-      <FeaturedNewsSection />
+      <ScrollRevealSection>
+        <FeaturedNewsSection />
+      </ScrollRevealSection>
 
       {/* 02: Real-time & Count-up Statistics */}
-      <StatsSection />
+      <ScrollRevealSection>
+        <StatsSection />
+      </ScrollRevealSection>
 
       {/* 03: Upcoming Events Embla Carousel */}
-      <UpcomingEventsSection />
+      <ScrollRevealSection>
+        <UpcomingEventsSection />
+      </ScrollRevealSection>
 
       {/* 04: Services & Direct Shortcuts Index */}
-      <ServicesSection />
+      <ScrollRevealSection>
+        <ServicesSection />
+      </ScrollRevealSection>
 
       {/* 05: Activity Photos Masonry Gallery with Lightbox */}
-      <GallerySection />
+      <ScrollRevealSection>
+        <GallerySection />
+      </ScrollRevealSection>
 
       {/* 06: Editorial President Greeting */}
-      <PresidentSection />
+      <ScrollRevealSection>
+        <PresidentSection />
+      </ScrollRevealSection>
     </div>
   );
 };

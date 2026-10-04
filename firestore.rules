@@ -1,82 +1,188 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // Default Deny All
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Helper functions
+    // ==========================================
+    // AUTHENTICATION & ROLE HELPERS
+    // ==========================================
+
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isSuperAdminEmail() {
-      return isSignedIn() &&
-        request.auth.token.email_verified == true &&
-        (request.auth.token.email == '67342100@up.ac.th' || request.auth.token.email == 'supakornsrion@gmail.com');
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function callerEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    // Bootstrap Emails (Can create initial super_admin when needed)
+    function isBootstrapEmail() {
+      return isEmailVerified() && (
+        callerEmail() == '67342100@up.ac.th' ||
+        callerEmail() == 'supakornsrion@gmail.com' ||
+        callerEmail() == 'satit.su@up.ac.th'
+      );
+    }
+
+    // Check if caller has an active admin record
+    function hasActiveAdminDoc() {
+      return isEmailVerified() &&
+        exists(/databases/$(database)/documents/admins/$(callerEmail())) &&
+        get(/databases/$(database)/documents/admins/$(callerEmail())).data.active == true;
+    }
+
+    function getCallerRole() {
+      return get(/databases/$(database)/documents/admins/$(callerEmail())).data.role;
+    }
+
+    function isSuperAdmin() {
+      return (hasActiveAdminDoc() && getCallerRole() == 'super_admin') ||
+        (isBootstrapEmail() && (!exists(/databases/$(database)/documents/admins/$(callerEmail())) || getCallerRole() == 'super_admin'));
     }
 
     function isAdmin() {
-      return isSuperAdminEmail() ||
-        (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+      return isSuperAdmin() ||
+        (hasActiveAdminDoc() && getCallerRole() == 'admin');
     }
 
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    function isEditor() {
+      return isAdmin() ||
+        (hasActiveAdminDoc() && getCallerRole() == 'editor');
     }
 
-    // Admins Collection
-    match /admins/{uid} {
-      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
-      allow write: if isSuperAdminEmail();
+    function isValidRole(role) {
+      return role in ['super_admin', 'admin', 'editor'];
     }
+
+    function isValidAdminPayload(data) {
+      return data.keys().hasAll(['role', 'displayName', 'active', 'addedBy', 'addedAt']) &&
+        data.keys().hasOnly(['role', 'displayName', 'active', 'addedBy', 'addedAt', 'lastLoginAt', 'updatedAt']) &&
+        isValidRole(data.role) &&
+        data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 120 &&
+        data.active is bool &&
+        data.addedBy is string && data.addedBy.size() <= 120 &&
+        data.addedAt is string && data.addedAt.size() <= 60;
+    }
+
+    // ==========================================
+    // ADMINS COLLECTION: /admins/{email}
+    // Document ID = Email in lowercase
+    // ==========================================
+    match /admins/{email} {
+      // Any verified user can read their own admin doc; editors/admins can read the list
+      allow read: if isEmailVerified() && (callerEmail() == email || isEditor());
+
+      // CREATE:
+      // 1. Initial self-bootstrap by approved bootstrap emails
+      // 2. Super admin can create any role (super_admin, admin, editor)
+      // 3. Admin can only create editor role (admin cannot create admin or super_admin)
+      // Rule: cannot create self unless initial bootstrap
+      allow create: if isEmailVerified() && isValidAdminPayload(request.resource.data) && (
+        (isBootstrapEmail() && callerEmail() == email && request.resource.data.role == 'super_admin' && request.resource.data.active == true) ||
+        (isSuperAdmin() && callerEmail() != email) ||
+        (isAdmin() && callerEmail() != email && request.resource.data.role == 'editor')
+      );
+
+      // UPDATE:
+      // 1. Self-update ONLY for lastLoginAt / displayName (cannot change own role or active status)
+      // 2. Super admin can update any user except self (prevent accidental self-lockout)
+      // 3. Admin can only update editor role, and target must already be editor
+      // Editor cannot update any admin
+      allow update: if isEmailVerified() && (
+        // Self-update allowed strictly for non-privilege metadata
+        (callerEmail() == email && hasActiveAdminDoc() &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastLoginAt', 'displayName']) &&
+         request.resource.data.role == resource.data.role &&
+         request.resource.data.active == resource.data.active) ||
+        // Super admin updating other users
+        (isSuperAdmin() && callerEmail() != email && isValidAdminPayload(request.resource.data)) ||
+        // Admin updating other editors only
+        (isAdmin() && callerEmail() != email && resource.data.role == 'editor' &&
+         request.resource.data.role == 'editor' && isValidAdminPayload(request.resource.data))
+      );
+
+      // DELETE / REVOKE:
+      // Cannot delete self!
+      // Super admin can delete any admin
+      // Admin can only delete editor
+      allow delete: if isEmailVerified() && callerEmail() != email && (
+        isSuperAdmin() ||
+        (isAdmin() && resource.data.role == 'editor')
+      );
+    }
+
+    // ==========================================
+    // AUDIT LOGS: /auditLogs/{id}
+    // Read: ONLY super_admin
+    // Create: When admin/super_admin performs an action
+    // Update/Delete: NEVER allowed (Immutable audit trail)
+    // ==========================================
+    match /auditLogs/{id} {
+      allow read: if isSuperAdmin();
+      allow create: if (isSuperAdmin() || isAdmin()) &&
+        request.resource.data.performedBy == callerEmail() &&
+        request.resource.data.action in ['grant', 'role_change', 'status_change', 'revoke'] &&
+        request.resource.data.targetEmail is string;
+      allow update, delete: if false;
+    }
+
+    // ==========================================
+    // CONTENT COLLECTIONS (News, Events, Downloads, People)
+    // Managed by Editors, Admins, Super Admins
+    // ==========================================
 
     // News Collection
     match /news/{id} {
-      allow read: if resource.data.published == true || isAdmin();
-      // Allow view increment by 1
+      allow read: if resource.data.published == true || isEditor();
+      // Allow view increment by 1 without auth
       allow update: if (
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) &&
         request.resource.data.views == resource.data.views + 1
-      ) || isAdmin();
-      allow create, delete: if isAdmin();
+      ) || isEditor();
+      allow create, delete: if isEditor();
     }
 
     // Events Collection
     match /events/{id} {
-      allow read: if resource.data.published == true || isAdmin();
-      allow write: if isAdmin();
+      allow read: if resource.data.published == true || isEditor();
+      allow write: if isEditor();
     }
 
     // Downloads Collection
     match /downloads/{id} {
       allow read: if true;
-      // Allow downloads increment by 1
+      // Allow downloads count increment by 1
       allow update: if (
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['downloads']) &&
         request.resource.data.downloads == resource.data.downloads + 1
-      ) || isAdmin();
-      allow create, delete: if isAdmin();
+      ) || isEditor();
+      allow create, delete: if isEditor();
     }
 
     // People Collection (Board, Advisors, Presidents)
     match /people/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isEditor();
     }
 
-    // Budgets Collection
+    // Budgets Collection (Restricted to Admin & Super Admin)
     match /budgets/{yearTH} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Site Settings Collection
+    // Site Settings Collection (Hero Slides, Ticker, System configs)
     match /settings/{docId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isEditor();
     }
 
     // Messages Collection (Contact Form)
@@ -87,12 +193,12 @@ service cloud.firestore {
                     request.resource.data.message is string &&
                     request.resource.data.message.size() > 0 &&
                     request.resource.data.message.size() <= 3000;
-      allow read, update, delete: if isAdmin();
+      allow read, update, delete: if isEditor();
     }
 
-    // Complaints Collection
+    // Complaints Collection (Public creation, Admin/Super Admin management)
     match /complaints/{trackingCode} {
-      // Anyone can create a complaint with valid initial status
+      // Anyone can submit a complaint with valid initial status
       allow create: if request.resource.data.trackingCode == trackingCode &&
                     request.resource.data.status == 'received' &&
                     request.resource.data.title is string &&
@@ -102,16 +208,16 @@ service cloud.firestore {
                     request.resource.data.body.size() >= 20 &&
                     request.resource.data.body.size() <= 5000;
 
-      // Allow single get by document ID (tracking code), forbid list/query for public
+      // Allow single get by document ID (tracking code), forbid public list/query
       allow get: if true;
       allow list: if isAdmin();
 
-      // Updates and deletes are reserved for admins
+      // Updates and deletes are reserved for Admin & Super Admin
       allow update, delete: if isAdmin();
 
       // Private contact subcollection
       match /private/contact {
-        allow create: if true; // Created along with the complaint
+        allow create: if true;
         allow read, write: if isAdmin();
       }
     }

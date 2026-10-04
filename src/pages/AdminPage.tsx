@@ -28,10 +28,13 @@ import {
   Database,
   FacebookLogo,
   FilmStrip,
+  ShieldWarning,
 } from "@phosphor-icons/react";
 import { FacebookPostImporter } from "@/src/components/admin/FacebookPostImporter";
+import { AdminUsersManagement } from "@/src/components/admin/AdminUsersManagement";
 import { auth, googleProvider } from "@/src/lib/firebase";
 import { ADMIN_BOOTSTRAP_EMAILS, SITE_CONFIG } from "@/src/config/site";
+import { bootstrapAdminUser } from "@/src/lib/adminService";
 import {
   NewsItem,
   EventItem,
@@ -41,6 +44,7 @@ import {
   ComplaintItem,
   ComplaintStatus,
   HeroSlideItem,
+  AdminUser,
 } from "@/src/types";
 import {
   getNews,
@@ -70,8 +74,9 @@ import { formatThaiDate, COMPLAINT_STATUS_CONFIG, formatCurrency } from "@/src/l
 import { TiptapEditor } from "@/src/components/admin/TiptapEditor";
 import { Emblem } from "@/src/components/common/Emblem";
 
-type AdminTab =
+export type AdminTab =
   | "overview"
+  | "users"
   | "slides"
   | "news"
   | "events"
@@ -81,11 +86,24 @@ type AdminTab =
   | "complaints"
   | "settings";
 
-export const AdminPage: React.FC = () => {
+export interface AdminPageProps {
+  defaultTab?: AdminTab;
+}
+
+export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [isAdminAuthorized, setIsAdminAuthorized] = useState(false);
-  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const [activeTab, setActiveTab] = useState<AdminTab>(defaultTab);
+  const [loginError, setLoginError] = useState<{ title: string; message: string; code?: string } | null>(null);
+
+  // Synchronize defaultTab if prop changes
+  useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
 
   // Global Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -131,21 +149,44 @@ export const AdminPage: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Auth Listener
+  // Auth & RBAC Verification Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user && user.email) {
-        // Check super admin bootstrap emails or allow current user for development
-        const isSuper = ADMIN_BOOTSTRAP_EMAILS.includes(user.email);
-        setIsAdminAuthorized(isSuper || true);
+        setAuthLoading(true);
+        try {
+          const adminDoc = await bootstrapAdminUser(user);
+          if (adminDoc && adminDoc.active) {
+            setCurrentAdmin(adminDoc);
+            setIsAdminAuthorized(true);
+          } else {
+            setCurrentAdmin(null);
+            setIsAdminAuthorized(false);
+          }
+        } catch (err: any) {
+          console.error("Auth check error:", err);
+          setIsAdminAuthorized(false);
+        } finally {
+          setAuthLoading(false);
+        }
       } else {
+        setCurrentAdmin(null);
         setIsAdminAuthorized(false);
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
     });
     return () => unsubscribe();
   }, []);
+
+  // Restrict tabs if user is editor (hide users, budget, complaints, settings)
+  useEffect(() => {
+    if (currentAdmin?.role === "editor") {
+      if (["users", "budget", "complaints", "settings"].includes(activeTab)) {
+        setActiveTab("overview");
+      }
+    }
+  }, [currentAdmin, activeTab]);
 
   // Fetch data on authorization
   const reloadData = async () => {
@@ -154,8 +195,10 @@ export const AdminPage: React.FC = () => {
     getEvents().then(setEventsList);
     getDownloads().then(setDownloadsList);
     getPeople().then(setPeopleList);
-    getBudget(2569).then(setBudgetData);
-    getAllComplaints().then(setComplaintsList);
+    if (currentAdmin?.role !== "editor") {
+      getBudget(2569).then(setBudgetData);
+      getAllComplaints().then(setComplaintsList);
+    }
     getSiteStatistics().then(setStats);
   };
 
@@ -166,10 +209,36 @@ export const AdminPage: React.FC = () => {
   }, [isAdminAuthorized]);
 
   const handleGoogleLogin = async () => {
+    setLoginError(null);
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      alert(`เข้าสู่ระบบไม่สำเร็จ: ${err.message}`);
+      console.error("Google Sign-In Error:", err);
+      if (err.code === "auth/unauthorized-domain") {
+        setLoginError({
+          title: "โดเมนยังไม่ได้รับอนุญาตใน Firebase (Unauthorized Domain)",
+          message: `โดเมนปัจจุบัน "${window.location.hostname}" ยังไม่ได้ถูกเพิ่มลงใน Firebase Console > Authentication > Settings > Authorized Domains กรุณาเพิ่มโดเมนนี้เพื่อเปิดให้ล็อกอิน`,
+          code: err.code,
+        });
+      } else if (err.code === "auth/popup-blocked") {
+        setLoginError({
+          title: "เบราว์เซอร์บล็อกหน้าต่างป็อปอัป (Popup Blocked)",
+          message: "กรุณากดอนุญาตให้แสดงป็อปอัป (Allow Popups) สำหรับเว็บไซต์นี้ แล้วลองใหม่อีกครั้ง",
+          code: err.code,
+        });
+      } else if (err.code === "auth/popup-closed-by-user") {
+        setLoginError({
+          title: "ยกเลิกการเข้าสู่ระบบ",
+          message: "หน้าต่างเข้าสู่ระบบ Google ถูกปิดก่อนทำรายการเสร็จสิ้น",
+          code: err.code,
+        });
+      } else {
+        setLoginError({
+          title: "เข้าสู่ระบบไม่สำเร็จ",
+          message: err.message || "เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์กับ Google",
+          code: err.code,
+        });
+      }
     }
   };
 
@@ -224,10 +293,10 @@ export const AdminPage: React.FC = () => {
   }
 
   // Not signed in / Not Admin Login Screen
-  if (!currentUser || !isAdminAuthorized) {
+  if (!currentUser || !isAdminAuthorized || !currentAdmin) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF7F0] px-4 font-sans py-12">
-        <div className="max-w-md w-full bg-[#FAF7F0] border border-[#B8923A]/40 rounded-[4px] p-8 shadow-lg text-center">
+        <div className="max-w-md w-full bg-[#FAF7F0] border border-[#B8923A]/40 rounded-[6px] p-8 shadow-xl text-center">
           <div className="flex justify-center mb-6">
             <Emblem size={64} theme="on-paper" />
           </div>
@@ -235,32 +304,61 @@ export const AdminPage: React.FC = () => {
           <h2 className="font-serif text-2xl font-bold text-[#1B1226] mb-1">
             ระบบจัดการหลังบ้าน (Admin Panel)
           </h2>
-          <p className="text-xs text-[#1B1226]/65 mb-8">
-            เฉพาะคณะกรรมการองค์การนักเรียนและอาจารย์ที่ปรึกษาที่ได้รับอนุญาต
+          <p className="text-xs text-[#1B1226]/65 mb-6">
+            โรงเรียนสาธิตมหาวิทยาลัยพะเยา (DeSUP)
           </p>
 
+          {/* Show Login Error Alert if any */}
+          {loginError && (
+            <div className="p-4 bg-rose-50 border border-rose-300 rounded-[4px] text-xs text-rose-900 text-left mb-6 space-y-2">
+              <div className="font-bold flex items-center gap-1.5 text-rose-800">
+                <ShieldWarning weight="fill" className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{loginError.title}</span>
+              </div>
+              <p className="text-rose-700 leading-relaxed text-[11px] sm:text-xs">
+                {loginError.message}
+              </p>
+              {loginError.code === "auth/unauthorized-domain" && (
+                <div className="mt-2 p-2 bg-white rounded border border-rose-200 font-mono text-[11px] text-[#1B1226] break-all select-all">
+                  {typeof window !== "undefined" ? window.location.hostname : ""}
+                </div>
+              )}
+            </div>
+          )}
+
           {currentUser ? (
-            <div className="p-4 bg-[#9B1C31]/10 border border-[#9B1C31]/30 rounded-[4px] text-xs text-[#9B1C31] mb-6">
-              บัญชี <strong>{currentUser.email}</strong> ยังไม่ได้รับสิทธิ์ผู้ดูแลระบบ
-              <div className="mt-3">
+            <div className="p-4 bg-[#9B1C31]/10 border border-[#9B1C31]/30 rounded-[4px] text-xs text-[#9B1C31] mb-6 text-left space-y-2">
+              <div className="font-semibold text-sm text-[#9B1C31]">ยังไม่ได้รับสิทธิ์ผู้ดูแลระบบ</div>
+              <p className="text-[12px] text-[#1B1226]/80 leading-relaxed">
+                บัญชี <strong>{currentUser.email}</strong> ยังไม่ได้รับสิทธิ์ผู้ดูแล หรือบัญชีนี้ถูกระงับการใช้งานชั่วคราว
+              </p>
+              <p className="text-[11px] text-[#1B1226]/60">
+                กรุณาติดต่อผู้ดูแลระบบสูงสุด (Super Admin) เพื่อขอรับสิทธิ์เข้าใช้งาน หรือสลับไปใช้บัญชีอื่น
+              </p>
+              <div className="pt-2 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="px-4 py-1.5 rounded-full border border-[#9B1C31] text-[#9B1C31] hover:bg-[#FAF7F0]"
+                  className="px-4 py-1.5 rounded-full border border-[#9B1C31] text-[#9B1C31] hover:bg-white text-xs font-semibold transition-colors"
                 >
                   สลับบัญชีอื่น
                 </button>
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              className="w-full flex items-center justify-center gap-3 py-3 rounded-full bg-[#4B1F7A] text-[#FAF7F0] text-sm font-medium hover:bg-[#2A1245] transition-colors shadow-sm"
-            >
-              <GoogleLogo weight="bold" className="w-4 h-4 text-[#D9B867]" />
-              <span>เข้าสู่ระบบด้วย Google Account</span>
-            </button>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                className="w-full flex items-center justify-center gap-3 py-3 rounded-full bg-[#4B1F7A] text-[#FAF7F0] text-sm font-medium hover:bg-[#2A1245] transition-all shadow-md active:scale-[0.98]"
+              >
+                <GoogleLogo weight="bold" className="w-5 h-5 text-[#D9B867]" />
+                <span>เข้าสู่ระบบด้วย Google Account</span>
+              </button>
+              <p className="text-[11px] text-[#1B1226]/50">
+                ล็อกอินด้วยอีเมลสถาบัน (@up.ac.th) หรืออีเมลที่ได้รับการแต่งตั้งสิทธิ์
+              </p>
+            </div>
           )}
 
           <div className="mt-8 pt-6 border-t border-[#B8923A]/20 flex items-center justify-center gap-2 text-xs text-[#1B1226]/60">
@@ -313,6 +411,22 @@ export const AdminPage: React.FC = () => {
               <ChartBar weight="light" className="w-4 h-4" />
               <span>ภาพรวม (Overview)</span>
             </button>
+
+            {/* Users Management: Visible for Super Admin & Admin */}
+            {currentAdmin?.role !== "editor" && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("users")}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[4px] text-xs font-medium transition-colors ${
+                  activeTab === "users"
+                    ? "bg-[#4B1F7A] text-[#FAF7F0]"
+                    : "text-[#1B1226]/80 hover:bg-[#FAF7F0]"
+                }`}
+              >
+                <ShieldCheck weight="light" className="w-4 h-4 text-[#D9B867]" />
+                <span>จัดการผู้ดูแลระบบ</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -379,44 +493,49 @@ export const AdminPage: React.FC = () => {
               <span>บุคลากร/ทำเนียบ ({peopleList.length})</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab("budget")}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[4px] text-xs font-medium transition-colors ${
-                activeTab === "budget"
-                  ? "bg-[#4B1F7A] text-[#FAF7F0]"
-                  : "text-[#1B1226]/80 hover:bg-[#FAF7F0]"
-              }`}
-            >
-              <Coins weight="light" className="w-4 h-4" />
-              <span>งบประมาณกิจกรรม</span>
-            </button>
+            {/* Restricted Tabs: Hidden for Editor */}
+            {currentAdmin?.role !== "editor" && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("budget")}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[4px] text-xs font-medium transition-colors ${
+                    activeTab === "budget"
+                      ? "bg-[#4B1F7A] text-[#FAF7F0]"
+                      : "text-[#1B1226]/80 hover:bg-[#FAF7F0]"
+                  }`}
+                >
+                  <Coins weight="light" className="w-4 h-4" />
+                  <span>งบประมาณกิจกรรม</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab("complaints")}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[4px] text-xs font-medium transition-colors ${
-                activeTab === "complaints"
-                  ? "bg-[#4B1F7A] text-[#FAF7F0]"
-                  : "text-[#1B1226]/80 hover:bg-[#FAF7F0]"
-              }`}
-            >
-              <ChatCircleDots weight="light" className="w-4 h-4" />
-              <span>เรื่องร้องเรียน ({complaintsList.length})</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("complaints")}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[4px] text-xs font-medium transition-colors ${
+                    activeTab === "complaints"
+                      ? "bg-[#4B1F7A] text-[#FAF7F0]"
+                      : "text-[#1B1226]/80 hover:bg-[#FAF7F0]"
+                  }`}
+                >
+                  <ChatCircleDots weight="light" className="w-4 h-4" />
+                  <span>เรื่องร้องเรียน ({complaintsList.length})</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab("settings")}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[4px] text-xs font-medium transition-colors ${
-                activeTab === "settings"
-                  ? "bg-[#4B1F7A] text-[#FAF7F0]"
-                  : "text-[#1B1226]/80 hover:bg-[#FAF7F0]"
-              }`}
-            >
-              <Gear weight="light" className="w-4 h-4" />
-              <span>ตั้งค่าระบบ / Seed</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("settings")}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[4px] text-xs font-medium transition-colors ${
+                    activeTab === "settings"
+                      ? "bg-[#4B1F7A] text-[#FAF7F0]"
+                      : "text-[#1B1226]/80 hover:bg-[#FAF7F0]"
+                  }`}
+                >
+                  <Gear weight="light" className="w-4 h-4" />
+                  <span>ตั้งค่าระบบ / Seed</span>
+                </button>
+              </>
+            )}
           </nav>
         </div>
 
@@ -425,10 +544,14 @@ export const AdminPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="truncate pr-2">
               <span className="text-xs font-semibold text-[#1B1226] block truncate">
-                {currentUser?.displayName || currentUser?.email}
+                {currentAdmin.displayName || currentAdmin.email}
               </span>
-              <span className="text-[10px] text-[#4B1F7A] truncate block">
-                Super Admin
+              <span className="text-[10px] text-[#4B1F7A] font-semibold truncate block">
+                {currentAdmin.role === "super_admin"
+                  ? "Super Admin"
+                  : currentAdmin.role === "admin"
+                  ? "Admin"
+                  : "Editor"}
               </span>
             </div>
 
@@ -452,6 +575,16 @@ export const AdminPage: React.FC = () => {
 
       {/* Main Admin Workspace Area */}
       <main className="flex-1 p-6 sm:p-10 overflow-y-auto max-h-screen">
+        {/* VIEW: USERS MANAGEMENT (Role-Based Access Control) */}
+        {activeTab === "users" && currentAdmin && currentAdmin.role !== "editor" && (
+          <div className="max-w-6xl">
+            <AdminUsersManagement
+              currentAdmin={currentAdmin}
+              onShowToast={showToast}
+            />
+          </div>
+        )}
+
         {/* VIEW 1: OVERVIEW */}
         {activeTab === "overview" && (
           <div className="space-y-8 max-w-6xl">
