@@ -13,9 +13,14 @@ import {
   ArrowLeft,
   CheckCircle,
   ShieldCheck,
+  UploadSimple,
+  Trash,
+  Camera,
+  Warning,
 } from "@phosphor-icons/react";
-import { ComplaintType } from "@/src/types";
+import { ComplaintType, ComplaintAttachment } from "@/src/types";
 import { submitComplaint } from "@/src/lib/dataService";
+import { compressImageFile, fileToDataUrl } from "@/src/lib/imageService";
 import { SectionHeading } from "@/src/components/common/SectionHeading";
 
 const COMPLAINT_TYPES: {
@@ -71,6 +76,48 @@ export const ComplaintPage: React.FC = () => {
   const [body, setBody] = useState("");
   const [location, setLocation] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [attachments, setAttachments] = useState<ComplaintAttachment[]>([]);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+
+  const handleAttachmentUpload = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
+    setAttachmentError(null);
+
+    const remainingSlots = 2 - attachments.length;
+    if (remainingSlots <= 0) {
+      setAttachmentError("แนบรูปภาพได้สูงสุด 2 รูปเท่านั้น");
+      return;
+    }
+
+    const filesToProcess = Array.from(files).slice(0, remainingSlots);
+    setIsCompressing(true);
+
+    try {
+      const newItems: ComplaintAttachment[] = [];
+      for (const file of filesToProcess) {
+        // Compress to WebP <= 300KB
+        const compressed = await compressImageFile(file, "attachment");
+        const dataUrl = await fileToDataUrl(compressed);
+        newItems.push({
+          name: file.name,
+          dataUrl,
+          size: compressed.size,
+          type: compressed.type,
+          createdAt: new Date().toISOString(),
+        });
+      }
+      setAttachments((prev) => [...prev, ...newItems]);
+    } catch (err: any) {
+      setAttachmentError(err.message || "เกิดข้อผิดพลาดในการย่อขนาดรูปภาพ");
+    } finally {
+      setIsCompressing(false);
+    }
+  };
+
+  const handleRemoveAttachment = (idx: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const [anonymous, setAnonymous] = useState(true);
   const [name, setName] = useState("");
@@ -140,6 +187,7 @@ export const ComplaintPage: React.FC = () => {
         body,
         location,
         imageUrls: imageUrl.trim() ? [imageUrl.trim()] : [],
+        attachments,
         anonymous,
         contact: anonymous ? undefined : { name, gradeRoom, contactChannel },
         honeypot,
@@ -464,18 +512,103 @@ export const ComplaintPage: React.FC = () => {
                   />
                 </div>
 
-                {/* Underline Input: Image Link (Optional) */}
-                <div>
-                  <label className="block text-xs font-sans font-semibold text-[#1B1226]/80 uppercase tracking-wider mb-1">
-                    ลิงก์รูปภาพประกอบ (ไม่บังคับ)
-                  </label>
-                  <input
-                    type="url"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="เช่น ลิงก์ Google Drive หรือรูปถ่ายแชร์สาธารณะ"
-                    className="w-full py-2.5 bg-transparent border-b border-[#B8923A]/40 text-[#1B1226] focus:outline-none focus:border-[#9C7A2B] focus:border-b-2 text-sm sm:text-base font-sans transition-all"
-                  />
+                {/* Image Attachments (Up to 2 images, compressed <= 300KB each, private to Admin) */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-sans font-semibold text-[#1B1226]/80 uppercase tracking-wider">
+                      แนบรูปภาพประกอบเรื่องร้องเรียน (สูงสุด 2 รูป)
+                    </label>
+                    <span className="text-[11px] text-[#1B1226]/60">
+                      ย่อขนาด ≤ 300KB อัตโนมัติ ({attachments.length}/2 รูป)
+                    </span>
+                  </div>
+
+                  {/* Privacy Warning Box as specified by user */}
+                  <div className="p-3.5 rounded-[6px] bg-amber-50/80 border border-amber-300 text-amber-900 text-xs flex items-start gap-2.5">
+                    <Warning weight="fill" className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <div className="font-bold text-amber-950">
+                        คำเตือนความเป็นส่วนตัวและความปลอดภัย (PDPA):
+                      </div>
+                      <p className="text-[11px] sm:text-xs text-amber-800 leading-relaxed">
+                        กรุณาหลีกเลี่ยงการแนบรูปภาพที่ปรากฏใบหน้าบุคคล บัตรประจำตัวประชาชน หรือข้อมูลส่วนบุคคลของผู้อื่นโดยไม่จำเป็น เพื่อคุ้มครองสิทธิและความเป็นส่วนตัวของผู้เกี่ยวข้อง (รูปภาพจะถูกจัดเก็บเป็นความลับและเปิดดูได้เฉพาะแอดมินเท่านั้น)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Attachment Error */}
+                  {attachmentError && (
+                    <div className="p-2.5 rounded bg-rose-50 border border-rose-200 text-xs text-rose-700">
+                      {attachmentError}
+                    </div>
+                  )}
+
+                  {/* Attachment Previews */}
+                  {attachments.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {attachments.map((att, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 rounded-[6px] border border-[#B8923A]/30 bg-white flex items-center justify-between gap-3 shadow-sm"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <img
+                              src={att.dataUrl}
+                              alt={`รูปแนบที่ ${idx + 1}`}
+                              className="w-12 h-12 rounded object-cover border border-slate-200 shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-[#1B1226] truncate">
+                                {att.name}
+                              </p>
+                              <span className="inline-block text-[10px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 font-mono">
+                                {(att.size / 1024).toFixed(0)} KB (≤ 300KB)
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAttachment(idx)}
+                            className="p-1.5 rounded-full hover:bg-rose-50 text-rose-600 transition-colors shrink-0"
+                            title="ลบรูปนี้"
+                          >
+                            <Trash className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Attachment Upload Controls */}
+                  {attachments.length < 2 && (
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FAF7F0] hover:bg-[#EDE6F5] border border-[#B8923A]/40 text-[#1B1226] text-xs font-medium transition-colors shadow-sm">
+                        <UploadSimple className="w-4 h-4 text-[#4B1F7A]" />
+                        <span>{isCompressing ? "กำลังย่อขนาดภาพ..." : "เลือกรูปภาพประกอบ (จากเครื่อง)"}</span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          disabled={isCompressing}
+                          onChange={(e) => e.target.files && handleAttachmentUpload(e.target.files)}
+                        />
+                      </label>
+
+                      <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FAF7F0] hover:bg-[#EDE6F5] border border-[#B8923A]/40 text-[#1B1226] text-xs font-medium transition-colors shadow-sm">
+                        <Camera className="w-4 h-4 text-[#4B1F7A]" />
+                        <span>ถ่ายภาพด้วยมือถือ</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          disabled={isCompressing}
+                          onChange={(e) => e.target.files && handleAttachmentUpload(e.target.files)}
+                        />
+                      </label>
+                    </div>
+                  )}
                 </div>
 
                 {/* Buttons */}

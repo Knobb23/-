@@ -6,6 +6,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { getFirestore, doc, getDocFromServer } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 import firebaseConfig from "@/firebase-applet-config.json";
 
 // Initialize Firebase App
@@ -13,6 +14,9 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore with specific database ID (CRITICAL)
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Initialize Firebase Storage
+export const storage = getStorage(app);
 
 // Initialize Authentication
 export const auth = getAuth(app);

@@ -17,6 +17,41 @@ export interface Attachment {
   size?: string;
 }
 
+export interface ImageAsset {
+  url: string;
+  width?: number;
+  height?: number;
+  alt: string;
+  size?: number;
+}
+
+export function normalizeImageAsset(
+  img: string | ImageAsset | undefined | null,
+  fallbackAlt: string = ""
+): ImageAsset {
+  if (!img) return { url: "", alt: fallbackAlt };
+  if (typeof img === "string") return { url: img, alt: fallbackAlt };
+  return {
+    url: img.url || "",
+    width: img.width,
+    height: img.height,
+    alt: img.alt || fallbackAlt,
+    size: img.size,
+  };
+}
+
+export function getImageUrl(img: string | ImageAsset | undefined | null): string {
+  if (!img) return "";
+  if (typeof img === "string") return img;
+  return img.url || "";
+}
+
+export function getImageAlt(img: string | ImageAsset | undefined | null, fallback: string = ""): string {
+  if (!img) return fallback;
+  if (typeof img === "string") return fallback;
+  return img.alt || fallback;
+}
+
 export interface NewsItem {
   id: string;
   title: string;
@@ -24,8 +59,8 @@ export interface NewsItem {
   category: NewsCategory;
   excerpt: string;
   content: string; // HTML from Tiptap editor
-  coverUrl: string;
-  galleryUrls?: string[];
+  coverUrl: ImageAsset | string;
+  galleryUrls?: (ImageAsset | string)[];
   attachments?: Attachment[];
   videoUrl?: string; // YouTube URL
   published: boolean;
@@ -46,7 +81,7 @@ export interface EventItem {
   startAt: string; // ISO date/time
   endAt: string; // ISO date/time
   allDay: boolean;
-  coverUrl?: string;
+  coverUrl?: ImageAsset | string;
   published: boolean;
 }
 
@@ -74,7 +109,7 @@ export interface PersonItem {
   department?: string; // e.g. ฝ่ายวิชาการ, ฝ่ายกิจกรรม, ฝ่ายสารสนเทศ
   grade?: string; // e.g. มัธยมศึกษาปีที่ 6/1
   yearTH: number; // e.g. 2569
-  photoUrl: string;
+  photoUrl: ImageAsset | string;
   quote?: string;
   order: number;
 }
@@ -114,6 +149,15 @@ export interface ComplaintContact {
   contactChannel?: string; // LINE or Email
 }
 
+export interface ComplaintAttachment {
+  id?: string;
+  name: string;
+  dataUrl: string; // Base64 data URL (compressed <= 300KB)
+  size: number;
+  type: string;
+  createdAt: string;
+}
+
 export interface ComplaintItem {
   id: string; // Tracking code e.g. SC-2569-ABCDEF
   trackingCode: string;
@@ -143,7 +187,7 @@ export interface GalleryPhoto {
   id: string;
   title: string;
   caption: string;
-  url: string;
+  url: ImageAsset | string;
   aspect: "4:5" | "3:2" | "1:1" | "16:9";
   date: string;
 }
@@ -162,7 +206,7 @@ export interface HeroSlideItem {
   title: string;
   subtitle?: string;
   tag?: string;
-  imageUrl: string;
+  imageUrl: ImageAsset | string;
   linkUrl: string;
   isExternal?: boolean;
   order: number;

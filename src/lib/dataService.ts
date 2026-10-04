@@ -1103,6 +1103,7 @@ export async function submitComplaint(payload: {
   body: string;
   location?: string;
   imageUrls?: string[];
+  attachments?: ComplaintAttachment[];
   anonymous: boolean;
   contact?: ComplaintContact;
   honeypot?: string;
@@ -1145,6 +1146,24 @@ export async function submitComplaint(payload: {
         payload.contact
       );
     }
+
+    // Save up to 2 compressed private attachments (data URLs <= 300KB each)
+    if (payload.attachments && payload.attachments.length > 0) {
+      const allowedAttachments = payload.attachments.slice(0, 2);
+      for (let i = 0; i < allowedAttachments.length; i++) {
+        const att = allowedAttachments[i];
+        await setDoc(
+          doc(db, `complaints/${trackingCode}/private/attachments`, `att-${i + 1}`),
+          {
+            name: att.name || `attachment-${i + 1}.webp`,
+            dataUrl: att.dataUrl,
+            size: att.size || 0,
+            type: att.type || "image/webp",
+            createdAt: isoTime,
+          }
+        );
+      }
+    }
   } catch (error) {
     console.warn("Could not save to Firestore, storing in memory fallback:", error);
     MOCK_COMPLAINTS[trackingCode] = publicData;
@@ -1152,6 +1171,18 @@ export async function submitComplaint(payload: {
 
   localStorage.setItem("desup_last_complaint_ts", String(now));
   return { trackingCode };
+}
+
+export async function getComplaintAttachments(trackingCode: string): Promise<ComplaintAttachment[]> {
+  try {
+    const attSnap = await getDocs(collection(db, `complaints/${trackingCode}/private/attachments`));
+    if (!attSnap.empty) {
+      return attSnap.docs.map((d) => ({ id: d.id, ...d.data() } as ComplaintAttachment));
+    }
+  } catch (err) {
+    console.warn("Could not fetch private attachments:", err);
+  }
+  return [];
 }
 
 export async function getComplaintByTrackingCode(trackingCode: string): Promise<ComplaintItem | null> {

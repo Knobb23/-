@@ -165,6 +165,19 @@
         "createdAt": { "type": "string" }
       },
       "required": ["name", "message", "createdAt"]
+    },
+    "ComplaintAttachment": {
+      "title": "ComplaintAttachment",
+      "description": "รูปภาพแนบเรื่องร้องเรียน (จัดเก็บเป็น data URL ขนาด <= 300KB สูงสุด 2 รูป เฉพาะแอดมินอ่านได้)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "dataUrl": { "type": "string" },
+        "size": { "type": "number" },
+        "type": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["dataUrl", "createdAt"]
     }
   },
   "firestore": {
@@ -191,6 +204,10 @@
     "/complaints/{trackingCode}/private/contact": {
       "schema": "ComplaintContact",
       "description": "ข้อมูลติดต่อผู้ร้องเรียน (เฉพาะแอดมิน)"
+    },
+    "/complaints/{trackingCode}/private/attachments/{attachmentId}": {
+      "schema": "ComplaintAttachment",
+      "description": "รูปภาพแนบเรื่องร้องเรียน (เฉพาะแอดมินอ่านได้)"
     },
     "/budgets/{yearTH}": {
       "schema": "Budget",

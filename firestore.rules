@@ -220,6 +220,13 @@ service cloud.firestore {
         allow create: if true;
         allow read, write: if isAdmin();
       }
+
+      // Private attachments subcollection (data URLs compressed <= 300KB each, max 2, admin read-only)
+      match /private/attachments/{attachmentId} {
+        allow create: if request.resource.data.dataUrl is string &&
+                      request.resource.data.dataUrl.size() <= 450000;
+        allow read, write: if isAdmin();
+      }
     }
   }
 }

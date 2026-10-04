@@ -19,6 +19,11 @@ export const ADMIN_BOOTSTRAP_EMAILS = [
   "satit.su@up.ac.th",
 ];
 
+/**
+ * ผู้ให้บริการจัดเก็บรูปภาพ: 'cloudinary' (ค่าเริ่มต้น, unsigned upload) หรือ 'firebase' (Firebase Storage)
+ */
+export const IMAGE_PROVIDER: "cloudinary" | "firebase" = "cloudinary";
+
 export const SITE_CONFIG = {
   name: "องค์การนักเรียน โรงเรียนสาธิตมหาวิทยาลัยพะเยา",
   shortName: "สธ.มพ.",
