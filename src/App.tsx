@@ -3,42 +3,27 @@
  * DeSUP Student Organization Website
  */
 
-import React, { lazy, Suspense } from "react";
+import React from "react";
 import { createBrowserRouter, createHashRouter, RouterProvider } from "react-router-dom";
 import { RootLayout } from "./components/layout/RootLayout";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
-// Phase 1 Pages
-const HomePage = lazy(() => import("./pages/HomePage"));
-
-// Phase 2 Pages
-const NewsPage = lazy(() => import("./pages/NewsPage"));
-const NewsDetailPage = lazy(() => import("./pages/NewsDetailPage"));
-const CalendarPage = lazy(() => import("./pages/CalendarPage"));
-const DownloadsPage = lazy(() => import("./pages/DownloadsPage"));
-const EmblemPage = lazy(() => import("./pages/about/EmblemPage"));
-const AuthorityPage = lazy(() => import("./pages/about/AuthorityPage"));
-const BoardPage = lazy(() => import("./pages/about/BoardPage"));
-const AdvisorsPage = lazy(() => import("./pages/about/AdvisorsPage"));
-const HallPage = lazy(() => import("./pages/about/HallPage"));
-
-// Phase 3 Pages
-const TransparencyPage = lazy(() => import("./pages/TransparencyPage"));
-const ComplaintPage = lazy(() => import("./pages/ComplaintPage"));
-const TrackPage = lazy(() => import("./pages/TrackPage"));
-const ContactPage = lazy(() => import("./pages/ContactPage"));
-
-// Phase 4 Page: Admin Panel
-const AdminPage = lazy(() => import("./pages/AdminPage"));
-
-const PageLoader = () => (
-  <div className="min-h-[50vh] flex items-center justify-center">
-    <div className="flex flex-col items-center gap-3">
-      <div className="w-8 h-8 rounded-full border-2 border-[#B8923A]/30 border-t-[#4B1F7A] animate-spin" />
-      <span className="text-xs text-[#1B1226]/60 font-sans tracking-wide">กำลังโหลดข้อมูล...</span>
-    </div>
-  </div>
-);
+// Direct Page Imports (Eliminates chunk loading failures on GitHub Pages / CDN / subdirectories)
+import HomePage from "./pages/HomePage";
+import NewsPage from "./pages/NewsPage";
+import NewsDetailPage from "./pages/NewsDetailPage";
+import CalendarPage from "./pages/CalendarPage";
+import DownloadsPage from "./pages/DownloadsPage";
+import EmblemPage from "./pages/about/EmblemPage";
+import AuthorityPage from "./pages/about/AuthorityPage";
+import BoardPage from "./pages/about/BoardPage";
+import AdvisorsPage from "./pages/about/AdvisorsPage";
+import HallPage from "./pages/about/HallPage";
+import TransparencyPage from "./pages/TransparencyPage";
+import ComplaintPage from "./pages/ComplaintPage";
+import TrackPage from "./pages/TrackPage";
+import ContactPage from "./pages/ContactPage";
+import AdminPage from "./pages/AdminPage";
 
 const routes = [
   {
@@ -48,144 +33,76 @@ const routes = [
     children: [
       {
         index: true,
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <HomePage />
-          </Suspense>
-        ),
+        element: <HomePage />,
       },
-      // News
+      // News Routes
       {
         path: "news",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <NewsPage />
-          </Suspense>
-        ),
+        element: <NewsPage />,
       },
       {
         path: "news/:category",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <NewsPage />
-          </Suspense>
-        ),
+        element: <NewsPage />,
       },
       {
         path: "news/read/:id",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <NewsDetailPage />
-          </Suspense>
-        ),
+        element: <NewsDetailPage />,
       },
       // Calendar & Downloads
       {
         path: "calendar",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <CalendarPage />
-          </Suspense>
-        ),
+        element: <CalendarPage />,
       },
       {
         path: "downloads",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <DownloadsPage />
-          </Suspense>
-        ),
+        element: <DownloadsPage />,
       },
-      // About Us
+      // About Us Pages
       {
         path: "about/emblem",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <EmblemPage />
-          </Suspense>
-        ),
+        element: <EmblemPage />,
       },
       {
         path: "about/authority",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <AuthorityPage />
-          </Suspense>
-        ),
+        element: <AuthorityPage />,
       },
       {
         path: "about/board",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <BoardPage />
-          </Suspense>
-        ),
+        element: <BoardPage />,
       },
       {
         path: "about/advisors",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <AdvisorsPage />
-          </Suspense>
-        ),
+        element: <AdvisorsPage />,
       },
       {
         path: "about/hall",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <HallPage />
-          </Suspense>
-        ),
+        element: <HallPage />,
       },
       // Transparency, Complaints, Tracking, Contact
       {
         path: "transparency",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <TransparencyPage />
-          </Suspense>
-        ),
+        element: <TransparencyPage />,
       },
       {
         path: "complaint",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <ComplaintPage />
-          </Suspense>
-        ),
+        element: <ComplaintPage />,
       },
       {
         path: "track",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <TrackPage />
-          </Suspense>
-        ),
+        element: <TrackPage />,
       },
       {
         path: "contact",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <ContactPage />
-          </Suspense>
-        ),
+        element: <ContactPage />,
       },
-      // Admin Panel
+      // Admin Panel & Admin Users
       {
         path: "admin",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <AdminPage />
-          </Suspense>
-        ),
+        element: <AdminPage />,
       },
       {
         path: "admin/users",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <AdminPage defaultTab="users" />
-          </Suspense>
-        ),
+        element: <AdminPage defaultTab="users" />,
       },
       // 404 Route
       {
@@ -196,13 +113,42 @@ const routes = [
   },
 ];
 
-// Automatically detect GitHub Pages domain (e.g. knobb23.github.io)
-// GitHub Pages hosts apps under a subdirectory path (/repository-name/) and lacks native SPA rewrite,
-// so HashRouter ensures 100% zero-configuration routing and never produces a 404/blank screen on refresh.
-const isGitHubPages =
-  typeof window !== "undefined" && window.location.hostname.includes("github.io");
+/**
+ * Automatic Router Configuration:
+ * - Detects subdirectory hosting (e.g. GitHub Pages https://<user>.github.io/<repo>/)
+ *   and sets router basename automatically.
+ * - Supports HashRouter fallback when URL contains hash (#/...) or file protocol.
+ * - Supports clean HTML5 BrowserRouter with SPA rewrites for Firebase, Vercel, Netlify,
+ *   Cloud Run, and GitHub Pages (via public/404.html redirect).
+ */
+function getRouterBasename(): string {
+  // 1. If Vite base path is a subpath (e.g. /my-repo/), use it
+  const viteBase = import.meta.env.BASE_URL;
+  if (viteBase && viteBase !== "/" && viteBase !== "./") {
+    return viteBase.replace(/\/$/, "");
+  }
 
-const router = isGitHubPages ? createHashRouter(routes) : createBrowserRouter(routes);
+  // 2. If hosted under GitHub Pages with a repository path: /<repo-name>/
+  if (typeof window !== "undefined" && window.location.hostname.includes("github.io")) {
+    const parts = window.location.pathname.split("/").filter(Boolean);
+    if (parts.length > 0 && !parts[0].includes(".")) {
+      return `/${parts[0]}`;
+    }
+  }
+
+  return "";
+}
+
+const isHashBased =
+  typeof window !== "undefined" &&
+  (window.location.protocol === "file:" ||
+    (Boolean(window.location.hash) && window.location.hash.startsWith("#/")));
+
+const basename = getRouterBasename();
+
+const router = isHashBased
+  ? createHashRouter(routes)
+  : createBrowserRouter(routes, { basename: basename || undefined });
 
 export default function App() {
   return <RouterProvider router={router} />;

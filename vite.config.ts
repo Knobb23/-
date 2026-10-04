@@ -4,12 +4,21 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
+  // Determine base path:
+  // 1. Explicit VITE_BASE_PATH if provided
+  // 2. GitHub repository path if running in GitHub Actions (GITHUB_REPOSITORY = "owner/repo" -> "/repo/")
+  // 3. Root '/' for Firebase Hosting, Vercel, Netlify, Cloud Run, and local development
+  const repoName = process.env.GITHUB_REPOSITORY
+    ? `/${process.env.GITHUB_REPOSITORY.split('/')[1]}/`
+    : '/';
+  const base = process.env.VITE_BASE_PATH || repoName;
+
   return {
-    base: './',
+    base,
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname || '.', '.'),
       },
     },
     server: {

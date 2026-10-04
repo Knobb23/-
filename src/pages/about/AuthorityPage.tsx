@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { CaretDown, Scales, BookOpen } from "@phosphor-icons/react";
 import { SectionHeading } from "@/src/components/common/SectionHeading";
 
@@ -96,13 +97,13 @@ export const AuthorityPage: React.FC = () => {
             </div>
           </div>
 
-          <a
-            href="/downloads"
+          <Link
+            to="/downloads"
             className="editorial-btn-secondary text-xs sm:text-sm font-medium text-[#4B1F7A] shrink-0"
           >
             <span>ดาวน์โหลดเอกสารฉบับเต็ม (PDF)</span>
             <span className="ml-1 text-[#9C7A2B]">→</span>
-          </a>
+          </Link>
         </div>
 
         {/* Accordions (Open one at a time as per spec) */}
