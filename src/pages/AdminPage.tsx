@@ -29,6 +29,8 @@ import {
   FacebookLogo,
   FilmStrip,
   ShieldWarning,
+  Copy,
+  ArrowSquareOut,
 } from "@phosphor-icons/react";
 import { FacebookPostImporter } from "@/src/components/admin/FacebookPostImporter";
 import { AdminUsersManagement } from "@/src/components/admin/AdminUsersManagement";
@@ -97,6 +99,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
   const [isAdminAuthorized, setIsAdminAuthorized] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>(defaultTab);
   const [loginError, setLoginError] = useState<{ title: string; message: string; code?: string } | null>(null);
+  const [copiedDomain, setCopiedDomain] = useState(false);
 
   // Synchronize defaultTab if prop changes
   useEffect(() => {
@@ -310,7 +313,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
 
           {/* Show Login Error Alert if any */}
           {loginError && (
-            <div className="p-4 bg-rose-50 border border-rose-300 rounded-[4px] text-xs text-rose-900 text-left mb-6 space-y-2">
+            <div className="p-4 bg-rose-50 border border-rose-300 rounded-[4px] text-xs text-rose-900 text-left mb-6 space-y-3">
               <div className="font-bold flex items-center gap-1.5 text-rose-800">
                 <ShieldWarning weight="fill" className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>{loginError.title}</span>
@@ -319,8 +322,44 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
                 {loginError.message}
               </p>
               {loginError.code === "auth/unauthorized-domain" && (
-                <div className="mt-2 p-2 bg-white rounded border border-rose-200 font-mono text-[11px] text-[#1B1226] break-all select-all">
-                  {typeof window !== "undefined" ? window.location.hostname : ""}
+                <div className="space-y-3 pt-1 border-t border-rose-200">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 px-3 py-1.5 bg-white rounded border border-rose-200 font-mono text-xs text-[#1B1226] select-all">
+                      {typeof window !== "undefined" ? window.location.hostname : "knobb23.github.io"}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const domain = typeof window !== "undefined" ? window.location.hostname : "knobb23.github.io";
+                        navigator.clipboard?.writeText(domain);
+                        setCopiedDomain(true);
+                        setTimeout(() => setCopiedDomain(false), 2500);
+                      }}
+                      className="px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs flex items-center gap-1.5 transition-colors shrink-0 shadow-sm"
+                    >
+                      <Copy weight="bold" className="w-3.5 h-3.5" />
+                      <span>{copiedDomain ? "คัดลอกแล้ว!" : "คัดลอกโดเมน"}</span>
+                    </button>
+                  </div>
+
+                  <div className="text-[11px] text-rose-800 bg-white/80 p-2.5 rounded border border-rose-200 space-y-1.5">
+                    <div className="font-semibold text-rose-900">วิธีเพิ่มโดเมนเพื่อเปิดให้ล็อกอิน:</div>
+                    <ol className="list-decimal pl-4 space-y-1 text-rose-800">
+                      <li>กดปุ่ม <strong>เปิดหน้าตั้งค่า Firebase Console</strong> ด้านล่างนี้</li>
+                      <li>ดูที่หัวข้อ <strong>Authorized domains (โดเมนที่ได้รับอนุญาต)</strong></li>
+                      <li>กดปุ่ม <strong>Add domain (เพิ่มโดเมน)</strong> แล้ววางชื่อโดเมน <code className="bg-rose-100 px-1 py-0.5 rounded text-[10px] font-mono">{typeof window !== "undefined" ? window.location.hostname : "knobb23.github.io"}</code> แล้วกด <strong>Save (บันทึก)</strong></li>
+                    </ol>
+                  </div>
+
+                  <a
+                    href="https://console.firebase.google.com/project/crafty-atrium-z3n78/authentication/settings"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 w-full py-2 rounded bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition-colors shadow-sm"
+                  >
+                    <span>เปิดหน้าตั้งค่า Firebase Console (Authorized Domains)</span>
+                    <ArrowSquareOut weight="bold" className="w-3.5 h-3.5" />
+                  </a>
                 </div>
               )}
             </div>
