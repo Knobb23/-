@@ -4,6 +4,7 @@ import { Quotes } from "@phosphor-icons/react";
 import { PersonItem } from "@/src/types";
 import { getPeople } from "@/src/lib/dataService";
 import { SectionHeading } from "@/src/components/common/SectionHeading";
+import { OptimizedImage } from "@/src/components/common/OptimizedImage";
 
 export const HallPage: React.FC = () => {
   const [presidents, setPresidents] = useState<PersonItem[]>([]);
@@ -64,11 +65,12 @@ export const HallPage: React.FC = () => {
                       <div className="flex gap-4 items-start">
                         {/* Photo */}
                         <div className="shrink-0 w-24 sm:w-28 aspect-[4/5] rounded-[3px] overflow-hidden bg-[#EDE6F5] border border-[#B8923A]/30">
-                          <img
+                          <OptimizedImage
                             src={pres.photoUrl}
                             alt={pres.name}
-                            loading="lazy"
+                            targetWidth={300}
                             className="w-full h-full object-cover filter grayscale contrast-105 group-hover:grayscale-0 transition-all duration-[400ms]"
+                            containerClassName="w-full h-full"
                           />
                         </div>
 

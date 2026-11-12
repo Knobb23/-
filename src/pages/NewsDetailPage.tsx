@@ -12,11 +12,12 @@ import {
   Play,
   Check,
 } from "@phosphor-icons/react";
-import { NewsItem } from "@/src/types";
+import { NewsItem, getImageUrl } from "@/src/types";
 import { getNewsById, getRelatedNews, incrementNewsViews } from "@/src/lib/dataService";
 import { formatThaiDate, NEWS_CATEGORY_NAMES } from "@/src/lib/format";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
+import { OptimizedImage } from "@/src/components/common/OptimizedImage";
 
 export const NewsDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -95,7 +96,7 @@ export const NewsDetailPage: React.FC = () => {
   }
 
   // Gallery slides for lightbox
-  const gallerySlides = news.galleryUrls?.map((url) => ({ src: url })) || [];
+  const gallerySlides = news.galleryUrls?.map((url) => ({ src: getImageUrl(url) })) || [];
 
   return (
     <article className="py-12 sm:py-16 bg-[#FAF7F0]">
@@ -142,10 +143,12 @@ export const NewsDetailPage: React.FC = () => {
                 onClick={() => setVideoLoaded(true)}
                 className="relative w-full h-full cursor-pointer group flex items-center justify-center"
               >
-                <img
+                <OptimizedImage
                   src={news.coverUrl}
                   alt={news.title}
+                  targetWidth={800}
                   className="w-full h-full object-cover opacity-85 group-hover:opacity-100 transition-opacity"
+                  containerClassName="w-full h-full"
                 />
                 <div className="absolute w-16 h-16 rounded-full bg-[#4B1F7A]/90 text-[#FAF7F0] border-2 border-[#D9B867] flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                   <Play weight="fill" className="w-6 h-6 ml-1 text-[#D9B867]" />
@@ -166,13 +169,15 @@ export const NewsDetailPage: React.FC = () => {
           </div>
         ) : (
           <div className="relative aspect-[16/10] rounded-[4px] overflow-hidden bg-[#EDE6F5] my-8 border border-[#B8923A]/30 shadow-md">
-            <img
+            <OptimizedImage
               src={news.coverUrl}
               alt={news.title}
               width={1200}
               height={750}
-              loading="eager"
+              targetWidth={1200}
+              priority={true}
               className="w-full h-full object-cover"
+              containerClassName="w-full h-full"
             />
           </div>
         )}
@@ -199,10 +204,12 @@ export const NewsDetailPage: React.FC = () => {
                   }}
                   className="aspect-[4/3] rounded-[3px] overflow-hidden bg-[#EDE6F5] border border-[#B8923A]/30 cursor-pointer group relative"
                 >
-                  <img
+                  <OptimizedImage
                     src={url}
                     alt={`ภาพประกอบ ${idx + 1}`}
+                    targetWidth={400}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    containerClassName="w-full h-full"
                   />
                   <div className="absolute inset-0 bg-[#2A1245]/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[#FAF7F0] text-xs font-sans">
                     ดูภาพขยาย
@@ -311,10 +318,12 @@ export const NewsDetailPage: React.FC = () => {
                 >
                   <div>
                     <div className="aspect-[16/10] rounded-[2px] overflow-hidden bg-[#EDE6F5] mb-3">
-                      <img
+                      <OptimizedImage
                         src={item.coverUrl}
                         alt={item.title}
+                        targetWidth={300}
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        containerClassName="w-full h-full"
                       />
                     </div>
                     <span className="text-[10px] text-[#9C7A2B] font-sans font-medium uppercase tracking-wider block mb-1">

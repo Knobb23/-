@@ -36,6 +36,7 @@ import {
   ComplaintType,
   ComplaintStatus,
   ComplaintContact,
+  ComplaintAttachment,
   ServiceLinkItem,
   GalleryPhoto,
   SiteStatistics,
@@ -843,6 +844,31 @@ export const MOCK_COMPLAINTS: Record<string, ComplaintItem> = {
 };
 
 // ==========================================
+// IN-MEMORY SWR CACHE LAYER (Instant 0ms Page Navigation)
+// ==========================================
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+const CACHE_TTL_MS = 180000; // 3 minutes fresh cache
+
+let newsCache: CacheEntry<NewsItem[]> | null = null;
+let eventsCache: CacheEntry<EventItem[]> | null = null;
+let downloadsCache: CacheEntry<DownloadItem[]> | null = null;
+let peopleCache: CacheEntry<PersonItem[]> | null = null;
+let heroSlidesCache: CacheEntry<HeroSlideItem[]> | null = null;
+const budgetCache: Record<number, CacheEntry<BudgetYearData>> = {};
+
+export function clearDataServiceCache() {
+  newsCache = null;
+  eventsCache = null;
+  downloadsCache = null;
+  peopleCache = null;
+  heroSlidesCache = null;
+  Object.keys(budgetCache).forEach((k) => delete budgetCache[Number(k)]);
+}
+
+// ==========================================
 // ASYNC API SERVICE METHODS
 // ==========================================
 
@@ -853,44 +879,40 @@ export async function getNews(options?: {
   offset?: number;
   includeUnpublished?: boolean;
 }): Promise<{ items: NewsItem[]; total: number }> {
-  try {
-    const newsCol = collection(db, "news");
-    let qConstraint = options?.includeUnpublished
-      ? query(newsCol, limit(50))
-      : query(newsCol, where("published", "==", true), limit(50));
+  let sourceNews: NewsItem[] = [];
 
-    const qSnap = await getDocs(qConstraint);
-    if (!qSnap.empty) {
-      let items: NewsItem[] = qSnap.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      })) as NewsItem[];
+  // Check in-memory cache first for instant response
+  const isCacheFresh = newsCache && Date.now() - newsCache.timestamp < CACHE_TTL_MS;
+  if (isCacheFresh && newsCache) {
+    sourceNews = newsCache.data;
+  } else {
+    try {
+      const newsCol = collection(db, "news");
+      let qConstraint = options?.includeUnpublished
+        ? query(newsCol, limit(100))
+        : query(newsCol, where("published", "==", true), limit(100));
 
-      if (options?.category && options.category !== "all") {
-        items = items.filter((n) => n.category === options.category);
+      const qSnap = await getDocs(qConstraint);
+      if (!qSnap.empty) {
+        sourceNews = qSnap.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        })) as NewsItem[];
+        newsCache = { data: sourceNews, timestamp: Date.now() };
+      } else {
+        sourceNews = [...MOCK_NEWS];
+        newsCache = { data: sourceNews, timestamp: Date.now() };
       }
-      if (options?.search?.trim()) {
-        const q = options.search.toLowerCase().trim();
-        items = items.filter(
-          (n) =>
-            n.title.toLowerCase().includes(q) ||
-            n.excerpt.toLowerCase().includes(q)
-        );
-      }
-      items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      const offset = options?.offset || 0;
-      const lim = options?.limit || items.length;
-      return { items: items.slice(offset, offset + lim), total: items.length };
+    } catch (error) {
+      console.warn("Using fallback news data:", error);
+      sourceNews = newsCache ? newsCache.data : [...MOCK_NEWS];
     }
-  } catch (error) {
-    console.warn("Using fallback news data:", error);
   }
 
-  let filtered = [...MOCK_NEWS];
+  let filtered = [...sourceNews];
   if (!options?.includeUnpublished) {
     filtered = filtered.filter((item) => item.published);
   }
-
   if (options?.category && options.category !== "all") {
     filtered = filtered.filter((item) => item.category === options.category);
   }
@@ -903,6 +925,7 @@ export async function getNews(options?: {
         item.content.toLowerCase().includes(q)
     );
   }
+
   filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const total = filtered.length;
   const offset = options?.offset || 0;
@@ -924,6 +947,12 @@ export async function getFeaturedNews(): Promise<{ main: NewsItem; secondary: Ne
 }
 
 export async function getNewsById(id: string): Promise<NewsItem | null> {
+  // Check memory cache first
+  if (newsCache && newsCache.data) {
+    const foundInCache = newsCache.data.find((n) => n.id === id || n.slug === id);
+    if (foundInCache) return foundInCache;
+  }
+
   try {
     const docSnap = await getDoc(doc(db, "news", id));
     if (docSnap.exists()) {
@@ -947,6 +976,11 @@ export async function incrementNewsViews(id: string): Promise<void> {
   if (sessionStorage.getItem(sessionKey)) return;
   sessionStorage.setItem(sessionKey, "true");
 
+  if (newsCache) {
+    const item = newsCache.data.find((n) => n.id === id);
+    if (item) item.views += 1;
+  }
+
   try {
     const docRef = doc(db, "news", id);
     await updateDoc(docRef, {
@@ -961,21 +995,28 @@ export async function incrementNewsViews(id: string): Promise<void> {
 export async function getEvents(options?: {
   type?: EventType;
 }): Promise<EventItem[]> {
-  try {
-    const evCol = collection(db, "events");
-    const snap = await getDocs(query(evCol, where("published", "==", true)));
-    if (!snap.empty) {
-      let items = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as EventItem[];
-      if (options?.type) {
-        items = items.filter((e) => e.type === options.type);
+  let sourceEvents: EventItem[] = [];
+
+  const isCacheFresh = eventsCache && Date.now() - eventsCache.timestamp < CACHE_TTL_MS;
+  if (isCacheFresh && eventsCache) {
+    sourceEvents = eventsCache.data;
+  } else {
+    try {
+      const evCol = collection(db, "events");
+      const snap = await getDocs(query(evCol, where("published", "==", true)));
+      if (!snap.empty) {
+        sourceEvents = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as EventItem[];
+        eventsCache = { data: sourceEvents, timestamp: Date.now() };
+      } else {
+        sourceEvents = [...MOCK_EVENTS];
+        eventsCache = { data: sourceEvents, timestamp: Date.now() };
       }
-      return items.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+    } catch {
+      sourceEvents = eventsCache ? eventsCache.data : [...MOCK_EVENTS];
     }
-  } catch {
-    // fallback
   }
 
-  let items = [...MOCK_EVENTS].filter((e) => e.published);
+  let items = sourceEvents.filter((e) => e.published);
   if (options?.type) {
     items = items.filter((e) => e.type === options.type);
   }
@@ -991,25 +1032,28 @@ export async function getDownloads(options?: {
   category?: DownloadCategory | "all";
   search?: string;
 }): Promise<DownloadItem[]> {
-  try {
-    const dlCol = collection(db, "downloads");
-    const snap = await getDocs(dlCol);
-    if (!snap.empty) {
-      let items = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as DownloadItem[];
-      if (options?.category && options.category !== "all") {
-        items = items.filter((d) => d.category === options.category);
+  let sourceDownloads: DownloadItem[] = [];
+
+  const isCacheFresh = downloadsCache && Date.now() - downloadsCache.timestamp < CACHE_TTL_MS;
+  if (isCacheFresh && downloadsCache) {
+    sourceDownloads = downloadsCache.data;
+  } else {
+    try {
+      const dlCol = collection(db, "downloads");
+      const snap = await getDocs(dlCol);
+      if (!snap.empty) {
+        sourceDownloads = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as DownloadItem[];
+        downloadsCache = { data: sourceDownloads, timestamp: Date.now() };
+      } else {
+        sourceDownloads = [...MOCK_DOWNLOADS];
+        downloadsCache = { data: sourceDownloads, timestamp: Date.now() };
       }
-      if (options?.search?.trim()) {
-        const q = options.search.toLowerCase().trim();
-        items = items.filter((d) => d.title.toLowerCase().includes(q));
-      }
-      return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch {
+      sourceDownloads = downloadsCache ? downloadsCache.data : [...MOCK_DOWNLOADS];
     }
-  } catch {
-    // fallback
   }
 
-  let items = [...MOCK_DOWNLOADS];
+  let items = [...sourceDownloads];
   if (options?.category && options.category !== "all") {
     items = items.filter((d) => d.category === options.category);
   }
@@ -1021,6 +1065,11 @@ export async function getDownloads(options?: {
 }
 
 export async function incrementDownloadCount(id: string): Promise<void> {
+  if (downloadsCache) {
+    const item = downloadsCache.data.find((d) => d.id === id);
+    if (item) item.downloads += 1;
+  }
+
   try {
     const docRef = doc(db, "downloads", id);
     await updateDoc(docRef, {
@@ -1033,34 +1082,50 @@ export async function incrementDownloadCount(id: string): Promise<void> {
 }
 
 export async function getPeople(role?: PersonRole, yearTH?: number): Promise<PersonItem[]> {
-  try {
-    const peoCol = collection(db, "people");
-    const snap = await getDocs(peoCol);
-    if (!snap.empty) {
-      let items = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as PersonItem[];
-      if (role) items = items.filter((p) => p.role === role);
-      if (yearTH) items = items.filter((p) => p.yearTH === yearTH);
-      return items.sort((a, b) => a.order - b.order);
+  let sourcePeople: PersonItem[] = [];
+
+  const isCacheFresh = peopleCache && Date.now() - peopleCache.timestamp < CACHE_TTL_MS;
+  if (isCacheFresh && peopleCache) {
+    sourcePeople = peopleCache.data;
+  } else {
+    try {
+      const peoCol = collection(db, "people");
+      const snap = await getDocs(peoCol);
+      if (!snap.empty) {
+        sourcePeople = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as PersonItem[];
+        peopleCache = { data: sourcePeople, timestamp: Date.now() };
+      } else {
+        sourcePeople = [...MOCK_PEOPLE];
+        peopleCache = { data: sourcePeople, timestamp: Date.now() };
+      }
+    } catch {
+      sourcePeople = peopleCache ? peopleCache.data : [...MOCK_PEOPLE];
     }
-  } catch {
-    // fallback
   }
 
-  let items = [...MOCK_PEOPLE];
+  let items = [...sourcePeople];
   if (role) items = items.filter((p) => p.role === role);
   if (yearTH) items = items.filter((p) => p.yearTH === yearTH);
   return items.sort((a, b) => a.order - b.order);
 }
 
 export async function getBudget(yearTH: number = 2569): Promise<BudgetYearData> {
+  if (budgetCache[yearTH] && Date.now() - budgetCache[yearTH].timestamp < CACHE_TTL_MS) {
+    return budgetCache[yearTH].data;
+  }
+
   try {
     const snap = await getDoc(doc(db, "budgets", String(yearTH)));
     if (snap.exists()) {
-      return snap.data() as BudgetYearData;
+      const data = snap.data() as BudgetYearData;
+      budgetCache[yearTH] = { data, timestamp: Date.now() };
+      return data;
     }
   } catch {
     // fallback
   }
+
+  budgetCache[yearTH] = { data: MOCK_BUDGET, timestamp: Date.now() };
   return MOCK_BUDGET;
 }
 
@@ -1298,6 +1363,18 @@ export async function saveNewsItem(item: Partial<NewsItem>): Promise<string> {
     updatedAt: isoTime,
   };
 
+  // Immediate cache sync (0ms)
+  if (!newsCache) {
+    newsCache = { data: [...MOCK_NEWS], timestamp: Date.now() };
+  }
+  const cacheIdx = newsCache.data.findIndex((n) => n.id === id);
+  if (cacheIdx >= 0) {
+    newsCache.data[cacheIdx] = data;
+  } else {
+    newsCache.data.unshift(data);
+  }
+  newsCache.timestamp = Date.now();
+
   try {
     await setDoc(doc(db, "news", id), data);
   } catch (error) {
@@ -1315,6 +1392,12 @@ export async function saveNewsItem(item: Partial<NewsItem>): Promise<string> {
 }
 
 export async function deleteNewsItem(id: string): Promise<void> {
+  // Immediate cache sync (0ms)
+  if (newsCache) {
+    newsCache.data = newsCache.data.filter((n) => n.id !== id);
+    newsCache.timestamp = Date.now();
+  }
+
   try {
     await deleteDoc(doc(db, "news", id));
   } catch {
@@ -1339,6 +1422,18 @@ export async function saveEventItem(item: Partial<EventItem>): Promise<string> {
     published: item.published ?? true,
   };
 
+  // Immediate cache sync (0ms)
+  if (!eventsCache) {
+    eventsCache = { data: [...MOCK_EVENTS], timestamp: Date.now() };
+  }
+  const cacheIdx = eventsCache.data.findIndex((e) => e.id === id);
+  if (cacheIdx >= 0) {
+    eventsCache.data[cacheIdx] = data;
+  } else {
+    eventsCache.data.push(data);
+  }
+  eventsCache.timestamp = Date.now();
+
   try {
     await setDoc(doc(db, "events", id), data);
   } catch {
@@ -1356,6 +1451,12 @@ export async function saveEventItem(item: Partial<EventItem>): Promise<string> {
 }
 
 export async function deleteEventItem(id: string): Promise<void> {
+  // Immediate cache sync (0ms)
+  if (eventsCache) {
+    eventsCache.data = eventsCache.data.filter((e) => e.id !== id);
+    eventsCache.timestamp = Date.now();
+  }
+
   try {
     await deleteDoc(doc(db, "events", id));
   } catch {
@@ -1378,6 +1479,18 @@ export async function saveDownloadItem(item: Partial<DownloadItem>): Promise<str
     createdAt: item.createdAt || new Date().toISOString(),
   };
 
+  // Immediate cache sync (0ms)
+  if (!downloadsCache) {
+    downloadsCache = { data: [...MOCK_DOWNLOADS], timestamp: Date.now() };
+  }
+  const cacheIdx = downloadsCache.data.findIndex((d) => d.id === id);
+  if (cacheIdx >= 0) {
+    downloadsCache.data[cacheIdx] = data;
+  } else {
+    downloadsCache.data.unshift(data);
+  }
+  downloadsCache.timestamp = Date.now();
+
   try {
     await setDoc(doc(db, "downloads", id), data);
   } catch {
@@ -1395,6 +1508,12 @@ export async function saveDownloadItem(item: Partial<DownloadItem>): Promise<str
 }
 
 export async function deleteDownloadItem(id: string): Promise<void> {
+  // Immediate cache sync (0ms)
+  if (downloadsCache) {
+    downloadsCache.data = downloadsCache.data.filter((d) => d.id !== id);
+    downloadsCache.timestamp = Date.now();
+  }
+
   try {
     await deleteDoc(doc(db, "downloads", id));
   } catch {
@@ -1419,6 +1538,18 @@ export async function savePersonItem(item: Partial<PersonItem>): Promise<string>
     order: item.order || 99,
   };
 
+  // Immediate cache sync (0ms)
+  if (!peopleCache) {
+    peopleCache = { data: [...MOCK_PEOPLE], timestamp: Date.now() };
+  }
+  const cacheIdx = peopleCache.data.findIndex((p) => p.id === id);
+  if (cacheIdx >= 0) {
+    peopleCache.data[cacheIdx] = data;
+  } else {
+    peopleCache.data.push(data);
+  }
+  peopleCache.timestamp = Date.now();
+
   try {
     await setDoc(doc(db, "people", id), data);
   } catch {
@@ -1436,6 +1567,12 @@ export async function savePersonItem(item: Partial<PersonItem>): Promise<string>
 }
 
 export async function deletePersonItem(id: string): Promise<void> {
+  // Immediate cache sync (0ms)
+  if (peopleCache) {
+    peopleCache.data = peopleCache.data.filter((p) => p.id !== id);
+    peopleCache.timestamp = Date.now();
+  }
+
   try {
     await deleteDoc(doc(db, "people", id));
   } catch {
@@ -1446,6 +1583,9 @@ export async function deletePersonItem(id: string): Promise<void> {
 }
 
 export async function saveBudgetData(budgetData: BudgetYearData): Promise<void> {
+  // Immediate cache sync (0ms)
+  budgetCache[budgetData.yearTH] = { data: budgetData, timestamp: Date.now() };
+
   try {
     await setDoc(doc(db, "budgets", String(budgetData.yearTH)), budgetData);
   } catch {
@@ -1587,6 +1727,11 @@ export const DEFAULT_HERO_SLIDES: HeroSlideItem[] = [
 let localHeroSlides: HeroSlideItem[] = [...DEFAULT_HERO_SLIDES];
 
 export async function getHeroSlides(): Promise<HeroSlideItem[]> {
+  const isCacheFresh = heroSlidesCache && Date.now() - heroSlidesCache.timestamp < CACHE_TTL_MS;
+  if (isCacheFresh && heroSlidesCache) {
+    return heroSlidesCache.data.filter((item) => item.published);
+  }
+
   try {
     const snap = await getDocs(collection(db, "hero_slides"));
     if (!snap.empty) {
@@ -1594,15 +1739,23 @@ export async function getHeroSlides(): Promise<HeroSlideItem[]> {
       snap.forEach((d) => items.push(d.data() as HeroSlideItem));
       items.sort((a, b) => a.order - b.order);
       localHeroSlides = items;
+      heroSlidesCache = { data: items, timestamp: Date.now() };
       return items.filter((item) => item.published);
     }
   } catch (error) {
     console.warn("Could not fetch hero slides from Firestore, using local slides:", error);
   }
+
+  heroSlidesCache = { data: localHeroSlides, timestamp: Date.now() };
   return localHeroSlides.filter((item) => item.published);
 }
 
 export async function getAllHeroSlides(): Promise<HeroSlideItem[]> {
+  const isCacheFresh = heroSlidesCache && Date.now() - heroSlidesCache.timestamp < CACHE_TTL_MS;
+  if (isCacheFresh && heroSlidesCache) {
+    return heroSlidesCache.data;
+  }
+
   try {
     const snap = await getDocs(collection(db, "hero_slides"));
     if (!snap.empty) {
@@ -1610,11 +1763,14 @@ export async function getAllHeroSlides(): Promise<HeroSlideItem[]> {
       snap.forEach((d) => items.push(d.data() as HeroSlideItem));
       items.sort((a, b) => a.order - b.order);
       localHeroSlides = items;
+      heroSlidesCache = { data: items, timestamp: Date.now() };
       return items;
     }
   } catch (error) {
     console.warn("Could not fetch hero slides from Firestore, using local slides:", error);
   }
+
+  heroSlidesCache = { data: localHeroSlides, timestamp: Date.now() };
   return localHeroSlides;
 }
 
@@ -1633,12 +1789,6 @@ export async function saveHeroSlide(slide: Partial<HeroSlideItem>): Promise<Hero
     createdAt: slide.createdAt || new Date().toISOString(),
   };
 
-  try {
-    await setDoc(doc(db, "hero_slides", slideId), fullSlide);
-  } catch (error) {
-    console.warn("Could not save hero slide to Firestore, saving locally:", error);
-  }
-
   const existingIndex = localHeroSlides.findIndex((s) => s.id === slideId);
   if (existingIndex >= 0) {
     localHeroSlides[existingIndex] = fullSlide;
@@ -1646,16 +1796,25 @@ export async function saveHeroSlide(slide: Partial<HeroSlideItem>): Promise<Hero
     localHeroSlides.push(fullSlide);
   }
   localHeroSlides.sort((a, b) => a.order - b.order);
+  heroSlidesCache = { data: [...localHeroSlides], timestamp: Date.now() };
+
+  try {
+    await setDoc(doc(db, "hero_slides", slideId), fullSlide);
+  } catch (error) {
+    console.warn("Could not save hero slide to Firestore, saved locally:", error);
+  }
 
   return fullSlide;
 }
 
 export async function deleteHeroSlide(slideId: string): Promise<void> {
+  localHeroSlides = localHeroSlides.filter((s) => s.id !== slideId);
+  heroSlidesCache = { data: [...localHeroSlides], timestamp: Date.now() };
+
   try {
     await deleteDoc(doc(db, "hero_slides", slideId));
   } catch (error) {
-    console.warn("Could not delete hero slide from Firestore, deleting locally:", error);
+    console.warn("Could not delete hero slide from Firestore, deleted locally:", error);
   }
-  localHeroSlides = localHeroSlides.filter((s) => s.id !== slideId);
 }
 

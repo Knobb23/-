@@ -11,6 +11,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { HeroSlideItem } from "@/src/types";
 import { DEFAULT_HERO_SLIDES, getHeroSlides } from "@/src/lib/dataService";
+import { OptimizedImage } from "@/src/components/common/OptimizedImage";
 
 const SLIDE_DURATION_MS = 5000; // 5 วินาทีต่อภาพ
 
@@ -188,11 +189,13 @@ export const HeroSection: React.FC = () => {
                   className="block w-full h-full cursor-pointer"
                   title={currentSlide.title}
                 >
-                  <img
+                  <OptimizedImage
                     src={currentSlide.imageUrl}
                     alt={currentSlide.title}
+                    priority={true}
+                    targetWidth={1600}
                     className="w-full h-full object-cover object-center"
-                    loading="eager"
+                    containerClassName="w-full h-full"
                   />
                 </a>
               ) : (
@@ -201,11 +204,13 @@ export const HeroSection: React.FC = () => {
                   className="block w-full h-full cursor-pointer"
                   title={currentSlide.title}
                 >
-                  <img
+                  <OptimizedImage
                     src={currentSlide.imageUrl}
                     alt={currentSlide.title}
+                    priority={true}
+                    targetWidth={1600}
                     className="w-full h-full object-cover object-center"
-                    loading="eager"
+                    containerClassName="w-full h-full"
                   />
                 </Link>
               )}

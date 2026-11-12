@@ -5,6 +5,7 @@ import { NewsItem, NewsCategory } from "@/src/types";
 import { getNews } from "@/src/lib/dataService";
 import { formatThaiDate, NEWS_CATEGORY_NAMES } from "@/src/lib/format";
 import { SectionHeading } from "@/src/components/common/SectionHeading";
+import { OptimizedImage } from "@/src/components/common/OptimizedImage";
 
 const CATEGORIES: { key: NewsCategory | "all"; label: string }[] = [
   { key: "all", label: "ข่าวทั้งหมด" },
@@ -172,13 +173,14 @@ export const NewsPage: React.FC = () => {
                 <div>
                   {/* Thumbnail */}
                   <div className="relative aspect-[16/10] overflow-hidden bg-[#EDE6F5]">
-                    <img
+                    <OptimizedImage
                       src={item.coverUrl}
                       alt={item.title}
                       width={600}
                       height={375}
-                      loading="lazy"
+                      targetWidth={600}
                       className="w-full h-full object-cover transition-transform duration-[600ms] ease-out group-hover:scale-[1.04]"
+                      containerClassName="w-full h-full"
                     />
 
                     {/* SVG Corner accents */}

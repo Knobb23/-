@@ -5,6 +5,7 @@ import { NewsItem } from "@/src/types";
 import { getFeaturedNews, MOCK_NEWS } from "@/src/lib/dataService";
 import { formatThaiDate, NEWS_CATEGORY_NAMES } from "@/src/lib/format";
 import { SectionHeading } from "@/src/components/common/SectionHeading";
+import { OptimizedImage } from "@/src/components/common/OptimizedImage";
 
 export const FeaturedNewsSection: React.FC = () => {
   const [featured, setFeatured] = useState<{ main: NewsItem; secondary: NewsItem[] }>(() => {
@@ -47,13 +48,15 @@ export const FeaturedNewsSection: React.FC = () => {
             >
               {/* Cover Image Container */}
               <div className="relative aspect-[16/10] overflow-hidden bg-[#EDE6F5]">
-                <img
+                <OptimizedImage
                   src={main.coverUrl}
                   alt={main.title}
                   width={1200}
                   height={800}
-                  loading="lazy"
+                  targetWidth={1000}
+                  priority={true}
                   className="w-full h-full object-cover transition-transform duration-[600ms] ease-out group-hover:scale-[1.04]"
+                  containerClassName="w-full h-full"
                 />
 
                 {/* SVG Corner Accents on Hover */}
@@ -129,13 +132,14 @@ export const FeaturedNewsSection: React.FC = () => {
               >
                 {/* Small Thumbnail 1:1 or 4:3 */}
                 <div className="shrink-0 w-24 sm:w-28 aspect-[4/3] rounded-[3px] overflow-hidden bg-[#EDE6F5] border border-[#B8923A]/20">
-                  <img
+                  <OptimizedImage
                     src={item.coverUrl}
                     alt={item.title}
                     width={200}
                     height={150}
-                    loading="lazy"
+                    targetWidth={300}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    containerClassName="w-full h-full"
                   />
                 </div>
 

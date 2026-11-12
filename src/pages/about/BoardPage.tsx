@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { PersonItem } from "@/src/types";
 import { getPeople } from "@/src/lib/dataService";
 import { SectionHeading } from "@/src/components/common/SectionHeading";
+import { OptimizedImage } from "@/src/components/common/OptimizedImage";
 
 export const BoardPage: React.FC = () => {
   const [boardMembers, setBoardMembers] = useState<PersonItem[]>([]);
@@ -64,10 +65,12 @@ export const BoardPage: React.FC = () => {
             </span>
             <div className="max-w-[320px] w-full bg-[#FAF7F0] border border-[#B8923A]/40 rounded-[4px] overflow-hidden p-4 shadow-md text-center group">
               <div className="relative aspect-[4/5] rounded-[3px] overflow-hidden bg-[#EDE6F5] mb-4">
-                <img
+                <OptimizedImage
                   src={president.photoUrl}
                   alt={president.name}
+                  targetWidth={450}
                   className="w-full h-full object-cover filter grayscale contrast-105 group-hover:grayscale-0 transition-all duration-[400ms]"
+                  containerClassName="w-full h-full"
                 />
               </div>
               <h4 className="font-serif text-lg font-bold text-[#1B1226] group-hover:text-[#4B1F7A] transition-colors">
@@ -99,10 +102,12 @@ export const BoardPage: React.FC = () => {
                   className="bg-[#FAF7F0] border border-[#B8923A]/30 rounded-[4px] overflow-hidden p-4 shadow-sm text-center group"
                 >
                   <div className="relative aspect-[4/5] rounded-[3px] overflow-hidden bg-[#EDE6F5] mb-4">
-                    <img
+                    <OptimizedImage
                       src={vp.photoUrl}
                       alt={vp.name}
+                      targetWidth={400}
                       className="w-full h-full object-cover filter grayscale contrast-105 group-hover:grayscale-0 transition-all duration-[400ms]"
+                      containerClassName="w-full h-full"
                     />
                   </div>
                   <h4 className="font-serif text-base font-bold text-[#1B1226] group-hover:text-[#4B1F7A] transition-colors">
@@ -133,11 +138,12 @@ export const BoardPage: React.FC = () => {
               >
                 {/* B&W photo turning to color on hover (400ms per spec) */}
                 <div className="relative aspect-[4/5] rounded-[3px] overflow-hidden bg-[#EDE6F5] mb-3">
-                  <img
+                  <OptimizedImage
                     src={member.photoUrl}
                     alt={member.name}
-                    loading="lazy"
+                    targetWidth={400}
                     className="w-full h-full object-cover filter grayscale contrast-105 group-hover:grayscale-0 transition-all duration-[400ms]"
+                    containerClassName="w-full h-full"
                   />
                 </div>
 

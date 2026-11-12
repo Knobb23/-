@@ -47,6 +47,7 @@ import {
   ComplaintStatus,
   HeroSlideItem,
   AdminUser,
+  getImageUrl,
 } from "@/src/types";
 import {
   getNews,
@@ -75,6 +76,7 @@ import {
 import { formatThaiDate, COMPLAINT_STATUS_CONFIG, formatCurrency } from "@/src/lib/format";
 import { TiptapEditor } from "@/src/components/admin/TiptapEditor";
 import { Emblem } from "@/src/components/common/Emblem";
+import { OptimizedImage } from "@/src/components/common/OptimizedImage";
 
 export type AdminTab =
   | "overview"
@@ -833,10 +835,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
                   <div>
                     {/* Slide Image Preview with Order Tag */}
                     <div className="relative aspect-[21/9] w-full bg-[#2A1245] overflow-hidden">
-                      <img
+                      <OptimizedImage
                         src={slide.imageUrl}
                         alt={slide.title}
+                        targetWidth={600}
                         className="w-full h-full object-cover"
+                        containerClassName="w-full h-full"
                       />
                       <div className="absolute top-2 left-2 bg-[#2A1245]/90 text-[#D9B867] px-2 py-0.5 rounded text-[10px] font-num font-bold">
                         ลำดับที่ {slide.order || idx + 1}
@@ -1666,15 +1670,33 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
               </button>
               <button
                 type="button"
-                onClick={async () => {
-                  if (deleteConfirmation.type === "slide") await deleteHeroSlide(deleteConfirmation.id);
-                  if (deleteConfirmation.type === "news") await deleteNewsItem(deleteConfirmation.id);
-                  if (deleteConfirmation.type === "event") await deleteEventItem(deleteConfirmation.id);
-                  if (deleteConfirmation.type === "download") await deleteDownloadItem(deleteConfirmation.id);
-                  if (deleteConfirmation.type === "person") await deletePersonItem(deleteConfirmation.id);
-                  showToast("ลบข้อมูลเรียบร้อยแล้ว");
-                  setDeleteConfirmation(null);
-                  reloadData();
+                onClick={() => {
+                  const target = deleteConfirmation;
+                  setDeleteConfirmation(null); // Close modal instantly
+
+                  // Optimistic removal from UI in 0ms
+                  if (target.type === "slide") setSlidesList((prev) => prev.filter((s) => s.id !== target.id));
+                  if (target.type === "news") setNewsList((prev) => prev.filter((n) => n.id !== target.id));
+                  if (target.type === "event") setEventsList((prev) => prev.filter((e) => e.id !== target.id));
+                  if (target.type === "download") setDownloadsList((prev) => prev.filter((d) => d.id !== target.id));
+                  if (target.type === "person") setPeopleList((prev) => prev.filter((p) => p.id !== target.id));
+
+                  showToast(`ลบ "${target.title}" เรียบร้อยแล้ว`);
+
+                  // Background firestore delete
+                  (async () => {
+                    try {
+                      if (target.type === "slide") await deleteHeroSlide(target.id);
+                      if (target.type === "news") await deleteNewsItem(target.id);
+                      if (target.type === "event") await deleteEventItem(target.id);
+                      if (target.type === "download") await deleteDownloadItem(target.id);
+                      if (target.type === "person") await deletePersonItem(target.id);
+                    } catch (err) {
+                      console.error("Delete sync error:", err);
+                      showToast("เกิดข้อผิดพลาดในการลบข้อมูล กำลังรีโหลด");
+                      reloadData();
+                    }
+                  })();
                 }}
                 className="px-5 py-2 rounded-full bg-[#9B1C31] text-[#FAF7F0] text-xs font-medium hover:bg-[#7A1526]"
               >
@@ -1798,7 +1820,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
                 </label>
                 <input
                   type="url"
-                  value={editingSlide.imageUrl || ""}
+                  value={getImageUrl(editingSlide.imageUrl) || ""}
                   onChange={(e) => setEditingSlide({ ...editingSlide, imageUrl: e.target.value })}
                   placeholder="https://..."
                   className="w-full p-2 rounded border border-[#B8923A]/40 bg-white"
@@ -1809,7 +1831,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
                 {editingSlide.imageUrl && (
                   <div className="mt-2 aspect-[21/9] w-full max-w-sm rounded overflow-hidden border border-[#B8923A]/30">
                     <img
-                      src={editingSlide.imageUrl}
+                      src={getImageUrl(editingSlide.imageUrl)}
                       alt="Preview"
                       className="w-full h-full object-cover"
                     />
@@ -1855,15 +1877,37 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
               </button>
               <button
                 type="button"
-                onClick={async () => {
-                  if (!editingSlide.title) {
+                onClick={() => {
+                  if (!editingSlide.title?.trim()) {
                     alert("กรุณาระบุหัวข้อสไลด์");
                     return;
                   }
-                  await saveHeroSlide(editingSlide);
-                  showToast("บันทึกสไลด์หน้าแรกเรียบร้อยแล้ว");
+                  const slideToSave = { ...editingSlide };
+                  const slideId = slideToSave.id || `slide-${Date.now()}`;
+                  slideToSave.id = slideId;
+
+                  // Optimistic UI update in 0ms
+                  setSlidesList((prev) => {
+                    const idx = prev.findIndex((s) => s.id === slideId);
+                    if (idx >= 0) {
+                      const next = [...prev];
+                      next[idx] = slideToSave as HeroSlideItem;
+                      return next;
+                    }
+                    return [...prev, slideToSave as HeroSlideItem];
+                  });
+
                   setIsSlideModalOpen(false);
-                  reloadData();
+                  showToast("บันทึกสไลด์หน้าแรกเรียบร้อยแล้ว");
+
+                  (async () => {
+                    try {
+                      await saveHeroSlide(slideToSave);
+                    } catch (err) {
+                      console.error("Save slide error:", err);
+                      reloadData();
+                    }
+                  })();
                 }}
                 className="px-6 py-2 rounded-full bg-[#4B1F7A] text-[#FAF7F0] text-xs font-medium hover:bg-[#2A1245]"
               >
@@ -1938,7 +1982,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
                   <label className="block text-xs font-semibold text-[#1B1226] mb-1">ลิงก์ภาพปก</label>
                   <input
                     type="url"
-                    value={editingNews.coverUrl || ""}
+                    value={getImageUrl(editingNews.coverUrl) || ""}
                     onChange={(e) => setEditingNews({ ...editingNews, coverUrl: e.target.value })}
                     placeholder="https://picsum.photos/..."
                     className="w-full p-2 rounded border border-[#B8923A]/40 text-xs"
@@ -1998,15 +2042,39 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
               </button>
               <button
                 type="button"
-                onClick={async () => {
-                  if (!editingNews.title) {
+                onClick={() => {
+                  if (!editingNews.title?.trim()) {
                     alert("กรุณาระบุหัวข้อข่าว");
                     return;
                   }
-                  await saveNewsItem(editingNews);
-                  showToast("บันทึกข่าวสารเรียบร้อยแล้ว");
+                  const newsToSave = { ...editingNews };
+                  const newsId = newsToSave.id || `news-${Date.now()}`;
+                  newsToSave.id = newsId;
+                  if (!newsToSave.createdAt) newsToSave.createdAt = new Date().toISOString();
+                  if (!newsToSave.views) newsToSave.views = 0;
+
+                  // Optimistic UI update in 0ms
+                  setNewsList((prev) => {
+                    const idx = prev.findIndex((n) => n.id === newsId);
+                    if (idx >= 0) {
+                      const next = [...prev];
+                      next[idx] = newsToSave as NewsItem;
+                      return next;
+                    }
+                    return [newsToSave as NewsItem, ...prev];
+                  });
+
                   setIsNewsModalOpen(false);
-                  reloadData();
+                  showToast("บันทึกข่าวสารเรียบร้อยแล้ว");
+
+                  (async () => {
+                    try {
+                      await saveNewsItem(newsToSave);
+                    } catch (err) {
+                      console.error("Save news error:", err);
+                      reloadData();
+                    }
+                  })();
                 }}
                 className="px-6 py-2 rounded-full bg-[#4B1F7A] text-[#FAF7F0] text-xs font-medium hover:bg-[#2A1245]"
               >
@@ -2090,12 +2158,34 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
               </button>
               <button
                 type="button"
-                onClick={async () => {
-                  if (!editingEvent.title) return;
-                  await saveEventItem(editingEvent);
-                  showToast("บันทึกกิจกรรมเรียบร้อย");
+                onClick={() => {
+                  if (!editingEvent.title?.trim()) return;
+                  const eventToSave = { ...editingEvent };
+                  const eventId = eventToSave.id || `evt-${Date.now()}`;
+                  eventToSave.id = eventId;
+
+                  // Optimistic UI update in 0ms
+                  setEventsList((prev) => {
+                    const idx = prev.findIndex((e) => e.id === eventId);
+                    if (idx >= 0) {
+                      const next = [...prev];
+                      next[idx] = eventToSave as EventItem;
+                      return next;
+                    }
+                    return [...prev, eventToSave as EventItem];
+                  });
+
                   setIsEventModalOpen(false);
-                  reloadData();
+                  showToast("บันทึกกิจกรรมเรียบร้อย");
+
+                  (async () => {
+                    try {
+                      await saveEventItem(eventToSave);
+                    } catch (err) {
+                      console.error("Save event error:", err);
+                      reloadData();
+                    }
+                  })();
                 }}
                 className="px-5 py-1.5 rounded-full bg-[#4B1F7A] text-[#FAF7F0] text-xs"
               >
@@ -2183,12 +2273,36 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
               </button>
               <button
                 type="button"
-                onClick={async () => {
-                  if (!editingDownload.title) return;
-                  await saveDownloadItem(editingDownload);
-                  showToast("บันทึกเอกสารเรียบร้อย");
+                onClick={() => {
+                  if (!editingDownload.title?.trim()) return;
+                  const downloadToSave = { ...editingDownload };
+                  const downloadId = downloadToSave.id || `dl-${Date.now()}`;
+                  downloadToSave.id = downloadId;
+                  if (!downloadToSave.createdAt) downloadToSave.createdAt = new Date().toISOString();
+                  if (!downloadToSave.downloads) downloadToSave.downloads = 0;
+
+                  // Optimistic UI update in 0ms
+                  setDownloadsList((prev) => {
+                    const idx = prev.findIndex((d) => d.id === downloadId);
+                    if (idx >= 0) {
+                      const next = [...prev];
+                      next[idx] = downloadToSave as DownloadItem;
+                      return next;
+                    }
+                    return [downloadToSave as DownloadItem, ...prev];
+                  });
+
                   setIsDownloadModalOpen(false);
-                  reloadData();
+                  showToast("บันทึกเอกสารเรียบร้อย");
+
+                  (async () => {
+                    try {
+                      await saveDownloadItem(downloadToSave);
+                    } catch (err) {
+                      console.error("Save download error:", err);
+                      reloadData();
+                    }
+                  })();
                 }}
                 className="px-5 py-1.5 rounded-full bg-[#4B1F7A] text-[#FAF7F0] text-xs"
               >
@@ -2275,7 +2389,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
                 <label className="block font-semibold mb-1">ลิงก์รูปถ่าย (URL)</label>
                 <input
                   type="url"
-                  value={editingPerson.photoUrl || ""}
+                  value={getImageUrl(editingPerson.photoUrl) || ""}
                   onChange={(e) => setEditingPerson({ ...editingPerson, photoUrl: e.target.value })}
                   placeholder="https://picsum.photos/..."
                   className="w-full p-2 rounded border border-[#B8923A]/40"
@@ -2303,12 +2417,34 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
               </button>
               <button
                 type="button"
-                onClick={async () => {
-                  if (!editingPerson.name) return;
-                  await savePersonItem(editingPerson);
-                  showToast("บันทึกข้อมูลบุคลากรเรียบร้อย");
+                onClick={() => {
+                  if (!editingPerson.name?.trim()) return;
+                  const personToSave = { ...editingPerson };
+                  const personId = personToSave.id || `person-${Date.now()}`;
+                  personToSave.id = personId;
+
+                  // Optimistic UI update in 0ms
+                  setPeopleList((prev) => {
+                    const idx = prev.findIndex((p) => p.id === personId);
+                    if (idx >= 0) {
+                      const next = [...prev];
+                      next[idx] = personToSave as PersonItem;
+                      return next;
+                    }
+                    return [...prev, personToSave as PersonItem];
+                  });
+
                   setIsPersonModalOpen(false);
-                  reloadData();
+                  showToast("บันทึกข้อมูลบุคลากรเรียบร้อย");
+
+                  (async () => {
+                    try {
+                      await savePersonItem(personToSave);
+                    } catch (err) {
+                      console.error("Save person error:", err);
+                      reloadData();
+                    }
+                  })();
                 }}
                 className="px-5 py-1.5 rounded-full bg-[#4B1F7A] text-[#FAF7F0] text-xs"
               >
@@ -2324,9 +2460,15 @@ export const AdminPage: React.FC<AdminPageProps> = ({ defaultTab = "overview" })
         isOpen={isFacebookImporterOpen}
         onClose={() => setIsFacebookImporterOpen(false)}
         onSaveDirectly={async (news) => {
-          await saveNewsItem(news);
+          // Optimistic UI update
+          setNewsList((prev) => [news as NewsItem, ...prev]);
           showToast("นำเข้าและเผยแพร่ข่าวสารจาก Facebook เรียบร้อยแล้ว");
-          reloadData();
+          try {
+            await saveNewsItem(news);
+          } catch (err) {
+            console.error("FB import error:", err);
+            reloadData();
+          }
         }}
         onEditInForm={(news) => {
           setEditingNews(news);

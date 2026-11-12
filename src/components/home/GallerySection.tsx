@@ -5,6 +5,7 @@ import { GalleryPhoto } from "@/src/types";
 import { getGalleryPhotos } from "@/src/lib/dataService";
 import { formatThaiDate } from "@/src/lib/format";
 import { SectionHeading } from "@/src/components/common/SectionHeading";
+import { OptimizedImage } from "@/src/components/common/OptimizedImage";
 
 export const GallerySection: React.FC = () => {
   const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
@@ -47,13 +48,14 @@ export const GallerySection: React.FC = () => {
                 className={`group relative rounded-[4px] overflow-hidden border border-[#B8923A]/30 bg-[#EDE6F5] cursor-pointer shadow-[0_1px_0_rgba(42,18,69,.06)] hover:shadow-[0_12px_24px_-8px_rgba(42,18,69,.16)] transition-all duration-300 ${aspectClass}`}
               >
                 {/* Photo */}
-                <img
+                <OptimizedImage
                   src={item.url}
                   alt={item.title}
                   width={800}
                   height={1000}
-                  loading="lazy"
+                  targetWidth={800}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  containerClassName="w-full h-full"
                 />
 
                 {/* Offset gold frame on hover */}
@@ -103,10 +105,12 @@ export const GallerySection: React.FC = () => {
 
             {/* Enlarged Image */}
             <div className="max-h-[70vh] bg-[#EDE6F5] overflow-hidden flex items-center justify-center">
-              <img
+              <OptimizedImage
                 src={selectedPhoto.url}
                 alt={selectedPhoto.title}
+                targetWidth={1200}
                 className="w-full h-auto max-h-[70vh] object-contain"
+                containerClassName="w-full h-auto flex items-center justify-center"
               />
             </div>
 

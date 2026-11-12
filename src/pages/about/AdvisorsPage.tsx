@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { PersonItem } from "@/src/types";
 import { getPeople } from "@/src/lib/dataService";
 import { SectionHeading } from "@/src/components/common/SectionHeading";
+import { OptimizedImage } from "@/src/components/common/OptimizedImage";
 
 export const AdvisorsPage: React.FC = () => {
   const [advisors, setAdvisors] = useState<PersonItem[]>([]);
@@ -35,11 +36,12 @@ export const AdvisorsPage: React.FC = () => {
               className="bg-[#FAF7F0] border border-[#B8923A]/30 rounded-[4px] overflow-hidden p-6 shadow-sm text-center group hover:shadow-md transition-shadow"
             >
               <div className="relative aspect-[4/5] rounded-[3px] overflow-hidden bg-[#EDE6F5] mb-5 max-w-[260px] mx-auto">
-                <img
+                <OptimizedImage
                   src={advisor.photoUrl}
                   alt={advisor.name}
-                  loading="lazy"
+                  targetWidth={450}
                   className="w-full h-full object-cover filter grayscale contrast-105 group-hover:grayscale-0 transition-all duration-[400ms]"
+                  containerClassName="w-full h-full"
                 />
               </div>
 

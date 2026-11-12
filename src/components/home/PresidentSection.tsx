@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Quotes } from "@phosphor-icons/react";
 import { getPresidentGreeting } from "@/src/lib/dataService";
 import { SectionHeading } from "@/src/components/common/SectionHeading";
+import { OptimizedImage } from "@/src/components/common/OptimizedImage";
 
 export const PresidentSection: React.FC = () => {
   const [president, setPresident] = useState<{
@@ -45,13 +46,14 @@ export const PresidentSection: React.FC = () => {
 
               {/* Photo Box */}
               <div className="relative w-full h-full rounded-[4px] overflow-hidden bg-[#EDE6F5] shadow-[0_12px_32px_-10px_rgba(42,18,69,0.2)]">
-                <img
+                <OptimizedImage
                   src={president.photoUrl}
                   alt={president.name}
                   width={800}
                   height={1000}
-                  loading="lazy"
+                  targetWidth={600}
                   className="w-full h-full object-cover filter grayscale contrast-105 hover:grayscale-0 transition-all duration-700"
+                  containerClassName="w-full h-full"
                 />
               </div>
             </div>
